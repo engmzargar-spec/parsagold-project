@@ -1,47 +1,27 @@
 from passlib.context import CryptContext
-from datetime import datetime, timedelta
-from jose import JWTError, jwt
-from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
-from .models import User
 
-# Security configurations
-SECRET_KEY = "parsa-gold-secret-key-2024-make-this-very-secret-in-production"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+# استفاده از pbkdf2_sha256 که مشکل bcrypt رو نداره
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
-def create_access_token(data: dict, expires_delta: timedelta = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
 
-def authenticate_user(db: Session, username: str, password: str):
-    user = db.query(User).filter(User.username == username).first()
-    if not user:
-        return False
-    if not verify_password(password, user.password_hash):
-        return False
-    return user
+def create_access_token(data: dict):
+    # این تابع رو موقتاً ساده می‌کنیم
+    import json
+    import base64
+    data_str = json.dumps(data)
+    return base64.b64encode(data_str.encode()).decode()
 
 def verify_token(token: str):
+    # موقتاً ساده
+    import json
+    import base64
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            return None
-        return username
-    except JWTError:
+        data_str = base64.b64decode(token).decode()
+        return json.loads(data_str)
+    except:
         return None
