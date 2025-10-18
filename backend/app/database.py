@@ -1,33 +1,51 @@
+# backend/app/database.py
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from .models import Base
+from sqlalchemy.orm import sessionmaker, declarative_base
+from urllib.parse import quote_plus
 import os
+from dotenv import load_dotenv
 
-def get_db_path():
-    """Get database path"""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
-    return os.path.join(project_root, 'data', 'parsagold.db')
+# 🔧 بارگذاری متغیرهای محیطی از فایل .env در مسیر درست
+env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+load_dotenv(env_path)
 
-# Database URL
-DATABASE_URL = f"sqlite:///{get_db_path()}"
+Base = declarative_base()
 
-# Create engine
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# ✅ استفاده از متغیرهای محیطی
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Session local
+# اگر DATABASE_URL در .env تنظیم نشده، از حالت fallback استفاده کن
+if not DATABASE_URL:
+    print("⚠️  DATABASE_URL در .env پیدا نشد، از حالت پیش‌فرض استفاده می‌کنم...")
+    password = "Mezr@1360"
+    encoded_password = quote_plus(password)
+    DATABASE_URL = f"postgresql://postgres:{encoded_password}@localhost:5432/parsagold"
+else:
+    print("✅ فایل .env با موفقیت load شد!")
+
+print(f"🔗 اتصال به: {DATABASE_URL.split('@')[1]}")
+
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
     """Initialize database"""
-    db_path = get_db_path()
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    Base.metadata.create_all(bind=engine)
+    try:
+        import models
+        Base.metadata.create_all(bind=engine)
+        print("✅ جداول با موفقیت در PostgreSQL ایجاد شدند!")
+    except Exception as e:
+        print(f"❌ خطا در ایجاد جداول: {e}")
+        import traceback
+        traceback.print_exc()
 
 def get_db():
-    """Dependency to get database session"""
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+if __name__ == "__main__":
+    print("🔍 تست مستقیم دیتابیس با تنظیمات .env...")
+    init_db()

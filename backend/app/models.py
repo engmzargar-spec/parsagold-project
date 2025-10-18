@@ -1,54 +1,46 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Enum, Text
-from sqlalchemy.ext.declarative import declarative_base
+# backend/app/models.py
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Numeric, Text, ForeignKey
 from sqlalchemy.sql import func
-import enum
+from sqlalchemy.orm import relationship
 
-Base = declarative_base()
-
-class UserRole(enum.Enum):
-    USER = "user"
-    ADMIN = "admin"
-    SUPER_ADMIN = "super_admin"
+# ✅ import از فایل database در همان پوشه
+from database import Base
 
 class User(Base):
     __tablename__ = "users"
-
+    
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    role = Column(Enum(UserRole), default=UserRole.USER)
-    balance = Column(Float, default=1000000.00)  # موجودی اولیه
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-
-class GoldPrice(Base):
-    __tablename__ = "gold_prices"
-
-    id = Column(Integer, primary_key=True, index=True)
-    gold_type = Column(String(50), nullable=False)
-    price = Column(Float, nullable=False)
-    change_percentage = Column(Float, default=0.0)  # درصد تغییر
-    last_updated = Column(DateTime, default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)
 
 class Trade(Base):
     __tablename__ = "trades"
-
+    
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=False)
-    gold_type = Column(String(50), nullable=False)
-    amount = Column(Float, nullable=False)  # مقدار طلا
-    price = Column(Float, nullable=False)   # قیمت در زمان معامله
-    total_amount = Column(Float, nullable=False)  # مبلغ کل
-    trade_type = Column(String(10), nullable=False)  # buy/sell
-    status = Column(String(20), default="completed")  # completed, pending, cancelled
-    created_at = Column(DateTime, default=func.now())
+    user_id = Column(Integer, ForeignKey('users.id'), index=True, nullable=False)
+    symbol = Column(String(20), nullable=False)
+    quantity = Column(Numeric(10, 4), nullable=False)
+    price = Column(Numeric(15, 6), nullable=False)
+    trade_type = Column(String(10), nullable=False)
+    status = Column(String(20), default='pending')
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    user = relationship("User")
 
-class SystemConfig(Base):
-    __tablename__ = "system_configs"
-
+class Portfolio(Base):
+    __tablename__ = "portfolios"
+    
     id = Column(Integer, primary_key=True, index=True)
-    config_key = Column(String(100), unique=True, nullable=False)
-    config_value = Column(Text, nullable=False)
-    description = Column(Text)
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    user_id = Column(Integer, ForeignKey('users.id'), unique=True, index=True, nullable=False)
+    total_balance = Column(Numeric(15, 6), default=0)
+    available_balance = Column(Numeric(15, 6), default=0)
+    invested_amount = Column(Numeric(15, 6), default=0)
+    holdings = Column(Text)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    user = relationship("User")
