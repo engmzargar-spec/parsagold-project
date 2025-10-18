@@ -1,33 +1,37 @@
+// frontend/src/app/layout.tsx
 import type { Metadata } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
+import { AuthProvider } from '../contexts/AuthContext';
+
+const geistSans = Geist({
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
+});
+
+const geistMono = Geist_Mono({
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+});
 
 export const metadata: Metadata = {
-  title: 'پارساگلد - اتاق معاملات طلا و نفت',
-  description: 'اولین اتاق معامله آنلاین نفت ایران - خرید و فروش امن طلا، نقره و نفت',
+  title: 'پارسا گلد - معامله طلا و نفت',
+  description: 'سامانه معاملات آنلاین طلا، نقره و نفت',
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="fa" dir="rtl">
-      <head>
-        <style>
-          {`
-            @font-face {
-              font-family: 'ParsagoldFont';
-              src: url('/fonts/parasagold-font.woff2') format('woff2');
-              font-weight: normal;
-              font-style: normal;
-              font-display: swap;
-            }
-          `}
-        </style>
-      </head>
-      <body className="font-sans" style={{ fontFamily: "'ParsagoldFont', system-ui, sans-serif" }}>
-        {children}
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
