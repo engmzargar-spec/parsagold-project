@@ -1,7 +1,6 @@
-# backend/app/database.py (موقت برای سیستم دوم)
+# فایل: backend/app/database.py
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-from urllib.parse import quote_plus
 import os
 from dotenv import load_dotenv
 
@@ -11,12 +10,10 @@ load_dotenv(env_path)
 
 Base = declarative_base()
 
-# ✅ استفاده موقت از کاربر postgres برای ایجاد جداول
-password = "Mezr@1360"  # رمز عبور PostgreSQL سیستم دوم
-encoded_password = quote_plus(password)
-DATABASE_URL = f"postgresql://postgres:{encoded_password}@localhost:5432/parsagold"
+# استفاده مستقیم از DATABASE_URL در .env
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-print(f"🔗 اتصال به: localhost:5432/parsagold")
+print(f"🔗 اتصال به: {DATABASE_URL}")
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -24,17 +21,9 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def init_db():
     """Initialize database"""
     try:
-        import models
+        from app.models import Base
         Base.metadata.create_all(bind=engine)
         print("✅ جداول با موفقیت در PostgreSQL ایجاد شدند!")
-        
-        # اعطای دسترسی به parsagold_user
-        with engine.connect() as conn:
-            from sqlalchemy import text
-            conn.execute(text("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO parsagold_user;"))
-            conn.execute(text("GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO parsagold_user;"))
-            conn.commit()
-            print("✅ دسترسی‌ها به parsagold_user اعطا شد")
             
     except Exception as e:
         print(f"❌ خطا در ایجاد جداول: {e}")

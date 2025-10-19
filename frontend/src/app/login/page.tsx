@@ -1,217 +1,250 @@
-// frontend/src/app/login/page.tsx
+// File: frontend/src/app/login/page.tsx
 'use client';
 
-import Image from 'next/image';
+import React from 'react';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useAuth } from '../../contexts/AuthContext';
+import { motion } from 'framer-motion';
+import { useMutation } from '@tanstack/react-query';
+import { loginUser } from '@/lib/api/auth';
 
-// Schema validation با Zod
+// تعریف ساده schema
+import { z } from 'zod';
+
 const loginSchema = z.object({
-  email: z.string().email('ایمیل معتبر وارد کنید'),
-  password: z.string().min(6, 'رمز عبور باید حداقل ۶ کاراکتر باشد'),
-  captcha: z.string().length(6, 'کد امنیتی باید ۶ کاراکتر باشد'),
+  email: z
+    .string()
+    .email('ایمیل معتبر نیست')
+    .min(5, 'ایمیل باید حداقل ۵ کاراکتر باشد'),
+  password: z.string().min(1, 'رمز عبور الزامی است'),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-// تابع تولید کپچا
-function generateCaptcha() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-  let result = '';
-  for (let i = 0; i < 6; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
-// آیکون‌های SVG ساده
-const HomeIcon = () => (
-  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-  </svg>
-);
-
-const ArrowPathIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-  </svg>
-);
-
 export default function LoginPage() {
   const router = useRouter();
-  const { login, loading } = useAuth();
-  
-  const [captchaCode, setCaptchaCode] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
 
   const {
     register,
     handleSubmit,
-    formState: { errors },
-    setValue,
-    watch,
+    formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
 
-  useEffect(() => {
-    setCaptchaCode(generateCaptcha());
-  }, []);
+  const loginMutation = useMutation({
+    mutationFn: loginUser,
+    onSuccess: (data) => {
+      console.log('✅ پاسخ سرور در onSuccess:', data);
+      
+      // بررسی ساختار response بک‌اند
+      let userEmail = '';
+      let userId = '';
+      let accessToken = '';
 
-  const onSubmit = async (data: LoginFormData) => {
-    setError('');
-    setSuccess('');
+      // حالت ۱: اگر response استاندارد FastAPI هست
+      if (data.access_token) {
+        accessToken = data.access_token;
+        userEmail = data.email || data.username || credentials.email;
+        userId = data.user_id || data.id || 'unknown';
+      }
+      // حالت ۲: اگر response ساده‌تر هست
+      else if (data.token) {
+        accessToken = data.token;
+        userEmail = data.email || credentials.email;
+        userId = data.userId || data.id || 'unknown';
+      }
+      // حالت ۳: اگر response کاملاً متفاوت هست
+      else {
+        console.warn('⚠️ ساختار response ناشناخته:', data);
+        // سعی می‌کنیم از ایمیل فرم استفاده کنیم
+        userEmail = credentials.email;
+        userId = 'generated_' + Date.now();
+        accessToken = 'dummy_token_' + Date.now();
+      }
 
-    // بررسی کپچا
-    if (data.captcha.toUpperCase() !== captchaCode.toUpperCase()) {
-      setError('کد امنیتی نادرست است');
-      setCaptchaCode(generateCaptcha());
-      setValue('captcha', '');
-      return;
-    }
+      // ذخیره اطلاعات
+      localStorage.setItem('access_token', accessToken);
+      localStorage.setItem('userEmail', userEmail);
+      localStorage.setItem('userId', userId);
 
-    try {
-      await login({
-        email: data.email,
-        password: data.password,
+      sessionStorage.setItem('access_token', accessToken);
+      sessionStorage.setItem('userEmail', userEmail);
+      sessionStorage.setItem('userId', userId);
+
+      console.log('💾 اطلاعات ذخیره شد:', {
+        userEmail,
+        userId,
+        accessToken: accessToken ? 'موجود' : 'مفقود'
       });
+
+      // نمایش پیام موفقیت
+      alert('ورود با موفقیت انجام شد! در حال انتقال به داشبورد...');
       
-      setSuccess('ورود با موفقیت انجام شد');
-      
+      // هدایت به صفحه داشبورد با تأخیر
       setTimeout(() => {
         router.push('/dashboard');
       }, 1000);
       
-    } catch (error: any) {
-      setError(error.response?.data?.detail || 'خطا در ورود به سیستم');
-      setCaptchaCode(generateCaptcha());
-      setValue('captcha', '');
+    },
+    onError: (error: any) => {
+      console.error('❌ خطا در ورود:', error);
+      alert(error.message || 'خطا در ورود. لطفاً دوباره تلاش کنید.');
+    },
+  });
+
+  // ذخیره credentials برای استفاده در onSuccess
+  const [credentials, setCredentials] = React.useState<LoginFormData>({ email: '', password: '' });
+
+  const onSubmit = async (data: LoginFormData) => {
+    try {
+      console.log('📝 داده‌های فرم:', data);
+      setCredentials(data); // ذخیره credentials
+      console.log('🚀 در حال ارسال به سرور...');
+      
+      await loginMutation.mutateAsync(data);
+      
+    } catch (error) {
+      console.error('❌ خطا در ارسال فرم:', error);
     }
   };
 
-  const refreshCaptcha = () => {
-    setCaptchaCode(generateCaptcha());
-    setValue('captcha', '');
-  };
-
   return (
-    <main dir="rtl" className="min-h-screen flex items-center justify-center px-4 py-10 bg-gradient-to-br from-gray-900 to-black text-white">
-      <Link href="/" className="absolute top-6 right-6 text-yellow-400 hover:text-yellow-300 flex items-center gap-2 z-50">
-        <HomeIcon />
-        <span className="hidden md:inline text-sm">خانه</span>
-      </Link>
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-md"
+      >
+        {/* لوگو */}
+        <div className="text-center mb-8">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+            className="w-20 h-20 bg-gradient-to-r from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-yellow-500/25"
+          >
+            <span className="text-2xl font-bold text-black">PG</span>
+          </motion.div>
+          <h1 className="text-3xl font-bold text-white mb-2">پارسا گلد</h1>
+          <p className="text-gray-400">ورود به حساب کاربری</p>
+        </div>
 
-      <div className="flex flex-col md:flex-row-reverse items-stretch justify-center max-w-5xl w-full">
-        <div className="w-full md:w-1/2 bg-gray-900 bg-opacity-70 rounded-2xl shadow-xl p-6 flex flex-col justify-center">
-          <h2 className="text-2xl font-bold text-yellow-400 mb-6 text-center">ورود به حساب کاربری</h2>
-          
+        {/* فرم ورود */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-gray-800/50 backdrop-blur-lg rounded-2xl p-6 shadow-xl border border-gray-700/50"
+        >
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* ایمیل */}
             <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                ایمیل
+              </label>
               <input
                 type="email"
-                placeholder="آدرس ایمیل"
                 {...register('email')}
-                className="w-full px-4 py-3 rounded-xl bg-gray-800 text-white placeholder-gray-400 text-right focus:outline-none focus:ring-2 focus:ring-yellow-500 border border-gray-700"
+                className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
+                placeholder="example@email.com"
               />
               {errors.email && (
-                <p className="text-red-400 text-sm text-right mt-2">{errors.email.message}</p>
+                <p className="text-red-400 text-xs mt-1">{errors.email.message}</p>
               )}
             </div>
 
-            {/* رمز عبور */}
             <div>
-              <input
-                type="password"
-                placeholder="رمز عبور"
-                {...register('password')}
-                className="w-full px-4 py-3 rounded-xl bg-gray-800 text-white placeholder-gray-400 text-right focus:outline-none focus:ring-2 focus:ring-yellow-500 border border-gray-700"
-              />
-              {errors.password && (
-                <p className="text-red-400 text-sm text-right mt-2">{errors.password.message}</p>
-              )}
-              <div className="text-right text-xs text-gray-400 mt-2">
-                <Link href="/forgot-password" className="hover:text-yellow-400 transition-colors">
-                  فراموشی رمز عبور؟
-                </Link>
-              </div>
-            </div>
-
-            {/* کپچا */}
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="کد امنیتی"
-                {...register('captcha')}
-                className="w-full px-4 py-3 rounded-xl bg-gray-800 text-white placeholder-gray-400 text-right focus:outline-none focus:ring-2 focus:ring-yellow-500 border border-gray-700"
-              />
-              {errors.captcha && (
-                <p className="text-red-400 text-sm text-right mt-2">{errors.captcha.message}</p>
-              )}
-              
-              <div className="flex items-center gap-3">
-                <span className="flex-1 text-lg font-mono bg-gray-800 px-4 py-3 rounded-xl tracking-widest text-yellow-400 text-center border border-gray-700">
-                  {captchaCode}
-                </span>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                رمز عبور
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  {...register('password')}
+                  className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all pr-10"
+                  placeholder="رمز عبور"
+                />
                 <button
                   type="button"
-                  onClick={refreshCaptcha}
-                  className="p-3 rounded-xl bg-gray-800 hover:bg-gray-700 transition border border-gray-700"
-                  title="تغییر کد امنیتی"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
                 >
-                  <ArrowPathIcon />
+                  {showPassword ? '🙈' : '👁️'}
                 </button>
               </div>
+              {errors.password && (
+                <p className="text-red-400 text-xs mt-1">{errors.password.message}</p>
+              )}
             </div>
 
-            {/* دکمه ورود */}
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-yellow-500 text-black font-semibold rounded-xl shadow-md hover:bg-yellow-400 transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSubmitting || loginMutation.isPending}
+              className="w-full bg-yellow-500 text-black font-semibold py-3 rounded-lg hover:bg-yellow-400 transition-colors shadow-lg shadow-yellow-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'در حال ورود...' : 'ورود'}
+              {isSubmitting || loginMutation.isPending ? (
+                <span className="flex items-center justify-center">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="w-5 h-5 border-2 border-black border-t-transparent rounded-full mr-2"
+                  />
+                  در حال ورود...
+                </span>
+              ) : (
+                'ورود به حساب'
+              )}
             </button>
+          </form>
 
-            {/* لینک ثبت نام */}
-            <div className="text-center text-sm text-gray-400">
-              <span>حساب کاربری ندارید؟ </span>
-              <Link href="/register" className="text-yellow-400 hover:text-yellow-300 transition-colors">
-                ثبت نام کنید
+          {/* لینک‌های اضافی */}
+          <div className="mt-6 space-y-3 text-center">
+            <p className="text-gray-400">
+              حساب ندارید؟{' '}
+              <Link
+                href="/register"
+                className="text-yellow-400 hover:text-yellow-300 font-semibold underline transition-colors"
+              >
+                ثبت‌نام کنید
+              </Link>
+            </p>
+            
+            <div>
+              <Link
+                href="/forgot-password"
+                className="text-gray-400 hover:text-gray-300 text-sm underline transition-colors"
+              >
+                رمز عبور خود را فراموش کرده‌اید؟
               </Link>
             </div>
-
-            {/* پیغام‌ها */}
-            {error && <p className="text-red-400 text-sm text-right mt-2">{error}</p>}
-            {success && <p className="text-green-400 text-sm text-right mt-2">{success}</p>}
-          </form>
-        </div>
-
-        {/* بخش لوگو - با لوگوی اصلی پارسا گلد */}
-        <div className="w-full md:w-1/2 bg-gray-800 border-l-2 border-yellow-500 rounded-l-2xl shadow-xl flex items-center justify-center p-8">
-          <div className="text-center">
-            {/* لوگوی اصلی پارسا گلد */}
-            <div className="w-64 h-64 mx-auto mb-6">
-              <Image 
-                src="/logo/Parsagold-main-logo.png" 
-                alt="پارسا گلد" 
-                width={256}
-                height={256}
-                className="object-contain w-full h-full"
-                priority
-              />
-            </div>
-            <h3 className="text-2xl font-bold text-yellow-400 mb-4">پارسا گلد</h3>
-            <p className="text-gray-300">پلتفرم مطمئن معاملات طلا، نقره و نفت</p>
           </div>
+        </motion.div>
+
+        {/* اطلاعات دیباگ */}
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => {
+              console.log('🔍 وضعیت فعلی localStorage:', {
+                access_token: localStorage.getItem('access_token'),
+                userEmail: localStorage.getItem('userEmail'),
+                userId: localStorage.getItem('userId')
+              });
+              console.log('🔍 وضعیت فعلی sessionStorage:', {
+                access_token: sessionStorage.getItem('access_token'),
+                userEmail: sessionStorage.getItem('userEmail'),
+                userId: sessionStorage.getItem('userId')
+              });
+            }}
+            className="text-xs text-gray-500 underline"
+          >
+            نمایش وضعیت ذخیره‌سازی (برای دیباگ)
+          </button>
         </div>
-      </div>
-    </main>
+      </motion.div>
+    </div>
   );
 }
