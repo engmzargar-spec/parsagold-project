@@ -173,68 +173,47 @@ export default function RegisterPage() {
   const selectedCountry = countryOptions.find(c => c.code === watch('countryCode')) || countryOptions[0];
 
   return (
-    <motion.main
-      dir="rtl"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="relative min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white px-4 py-10"
-    >
-      {/* Background Pattern */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-yellow-500/10 via-transparent to-transparent"></div>
-      
-      <div className="absolute top-4 right-4 z-50">
-        <Link href="/" className="text-yellow-400 hover:text-yellow-300 flex items-center gap-2 bg-gray-800/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-yellow-500/30">
-          <HomeIcon className="w-5 h-5" />
-          <span className="text-sm">بازگشت به خانه</span>
+    <main dir="rtl" className="min-h-screen bg-gray-900 text-white px-4 py-10">
+      <div className="absolute top-4 right-4">
+        <Link href="/" className="text-yellow-400 hover:text-yellow-300 flex items-center gap-2">
+          <HomeIcon className="w-6 h-6" />
         </Link>
       </div>
 
-      <div className="flex flex-col md:flex-row-reverse items-stretch justify-center max-w-6xl mx-auto relative z-10">
+      <div className="flex flex-col md:flex-row-reverse items-stretch justify-center max-w-5xl mx-auto">
         {/* بخش فرم */}
-        <motion.div 
-          initial={{ x: 50, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="w-full md:w-1/2 bg-gray-900/80 backdrop-blur-md rounded-r-2xl shadow-2xl p-8 border-l border-yellow-500/30"
-        >
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
-              ثبت‌نام در پارسا گلد
-            </h2>
-            <p className="text-gray-400 mt-2">جامعه‌ای مطمئن برای معاملات طلا و نقره</p>
-          </div>
+        <div className="w-full md:w-1/2 bg-gray-800 rounded-r-xl shadow-xl p-6">
+          <h2 className="text-2xl font-bold text-yellow-400 mb-6 text-center">ثبت‌نام در پارسا گلد</h2>
           
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* فیلد نام و نام خانوادگی در یک ردیف */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <input
-                  {...register('firstName')}
-                  type="text"
-                  placeholder="نام"
-                  className={`w-full px-4 py-3 rounded-lg bg-gray-800/50 border-2 text-white placeholder-gray-400 text-right focus:outline-none focus:border-yellow-500 transition-all duration-300 ${
-                    errors.firstName ? 'border-red-500' : 'border-gray-600'
-                  }`}
-                />
-                {errors.firstName && (
-                  <p className="text-red-400 text-sm text-right mt-2">{errors.firstName.message}</p>
-                )}
-              </div>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {/* فیلد نام */}
+            <div>
+              <input
+                {...register('firstName')}
+                type="text"
+                placeholder="نام: *"
+                className={`w-full px-4 py-3 rounded-md bg-gray-700 text-white placeholder-gray-400 text-right ${
+                  errors.firstName ? 'border border-red-500' : 'border border-gray-600'
+                }`}
+              />
+              {errors.firstName && (
+                <p className="text-red-400 text-sm text-right mt-1">{errors.firstName.message}</p>
+              )}
+            </div>
 
-              <div>
-                <input
-                  {...register('lastName')}
-                  type="text"
-                  placeholder="نام خانوادگی"
-                  className={`w-full px-4 py-3 rounded-lg bg-gray-800/50 border-2 text-white placeholder-gray-400 text-right focus:outline-none focus:border-yellow-500 transition-all duration-300 ${
-                    errors.lastName ? 'border-red-500' : 'border-gray-600'
-                  }`}
-                />
-                {errors.lastName && (
-                  <p className="text-red-400 text-sm text-right mt-2">{errors.lastName.message}</p>
-                )}
-              </div>
+            {/* فیلد نام خانوادگی */}
+            <div>
+              <input
+                {...register('lastName')}
+                type="text"
+                placeholder="نام خانوادگی: *"
+                className={`w-full px-4 py-3 rounded-md bg-gray-700 text-white placeholder-gray-400 text-right ${
+                  errors.lastName ? 'border border-red-500' : 'border border-gray-600'
+                }`}
+              />
+              {errors.lastName && (
+                <p className="text-red-400 text-sm text-right mt-1">{errors.lastName.message}</p>
+              )}
             </div>
 
             {/* فیلد ایمیل */}
@@ -242,13 +221,13 @@ export default function RegisterPage() {
               <input
                 {...register('email')}
                 type="email"
-                placeholder="آدرس ایمیل"
-                className={`w-full px-4 py-3 rounded-lg bg-gray-800/50 border-2 text-white placeholder-gray-400 text-right focus:outline-none focus:border-yellow-500 transition-all duration-300 ${
-                  errors.email ? 'border-red-500' : 'border-gray-600'
+                placeholder="ایمیل: *"
+                className={`w-full px-4 py-3 rounded-md bg-gray-700 text-white placeholder-gray-400 text-right ${
+                  errors.email ? 'border border-red-500' : 'border border-gray-600'
                 }`}
               />
               {errors.email && (
-                <p className="text-red-400 text-sm text-right mt-2">{errors.email.message}</p>
+                <p className="text-red-400 text-sm text-right mt-1">{errors.email.message}</p>
               )}
             </div>
 
@@ -257,63 +236,60 @@ export default function RegisterPage() {
               <input
                 {...register('nationalCode')}
                 type="text"
-                placeholder="شماره ملی"
+                placeholder="شماره ملی: *"
                 maxLength={10}
-                className={`w-full px-4 py-3 rounded-lg bg-gray-800/50 border-2 text-white placeholder-gray-400 text-right focus:outline-none focus:border-yellow-500 transition-all duration-300 ${
-                  errors.nationalCode ? 'border-red-500' : 'border-gray-600'
+                className={`w-full px-4 py-3 rounded-md bg-gray-700 text-white placeholder-gray-400 text-right ${
+                  errors.nationalCode ? 'border border-red-500' : 'border border-gray-600'
                 }`}
               />
               {errors.nationalCode && (
-                <p className="text-red-400 text-sm text-right mt-2">{errors.nationalCode.message}</p>
+                <p className="text-red-400 text-sm text-right mt-1">{errors.nationalCode.message}</p>
               )}
             </div>
 
             {/* فیلد شماره تلفن */}
-            <div>
-              <label className="block text-sm text-gray-400 mb-2 text-right">شماره موبایل</label>
-              <div className="flex flex-row-reverse items-center gap-3">
-                <div className="w-40">
-                  <Select<CountryOption>
-                    options={countryOptions}
-                    value={selectedCountry}
-                    onChange={handleCountryChange}
-                    components={{ SingleValue: customSingleValue, Option: customOption }}
-                    styles={customStyles}
-                    classNamePrefix="react-select"
-                    className="text-right"
-                    isSearchable={false}
-                  />
-                </div>
-                <span className="text-yellow-400 text-lg font-medium">{selectedCountry?.code}</span>
-                <input
-                  {...register('phone')}
-                  type="tel"
-                  placeholder="بدون صفر ابتدایی"
-                  className={`px-4 py-3 rounded-lg bg-gray-800/50 border-2 text-white placeholder-gray-400 text-right focus:outline-none focus:border-yellow-500 transition-all duration-300 flex-1 ${
-                    errors.phone ? 'border-red-500' : 'border-gray-600'
-                  }`}
+            <div className="flex flex-row-reverse items-center gap-2">
+              <div className="w-40">
+                <Select<CountryOption>
+                  options={countryOptions}
+                  value={selectedCountry}
+                  onChange={handleCountryChange}
+                  components={{ SingleValue: customSingleValue, Option: customOption }}
+                  styles={customStyles}
+                  classNamePrefix="react-select"
+                  className="text-right"
+                  isSearchable={false}
                 />
               </div>
-              {errors.phone && (
-                <p className="text-red-400 text-sm text-right mt-2">{errors.phone.message}</p>
-              )}
+              <span className="text-yellow-400 text-sm">{selectedCountry?.code}</span>
+              <input
+                {...register('phone')}
+                type="tel"
+                placeholder="شماره موبایل (بدون صفر): *"
+                className={`px-4 py-3 rounded-md bg-gray-700 text-white placeholder-gray-400 text-right flex-1 ${
+                  errors.phone ? 'border border-red-500' : 'border border-gray-600'
+                }`}
+              />
             </div>
+            {errors.phone && (
+              <p className="text-red-400 text-sm text-right mt-1">{errors.phone.message}</p>
+            )}
 
             {/* فیلد رمز عبور */}
             <div>
               <input
                 {...register('password')}
                 type="password"
-                placeholder="رمز عبور"
-                className={`w-full px-4 py-3 rounded-lg bg-gray-800/50 border-2 text-white placeholder-gray-400 text-right focus:outline-none focus:border-yellow-500 transition-all duration-300 ${
-                  errors.password ? 'border-red-500' : 'border-gray-600'
+                placeholder="رمز عبور: *"
+                className={`w-full px-4 py-3 rounded-md bg-gray-700 text-white placeholder-gray-400 text-right ${
+                  errors.password ? 'border border-red-500' : 'border border-gray-600'
                 }`}
               />
               {errors.password && (
-                <p className="text-red-400 text-sm text-right mt-2">{errors.password.message}</p>
+                <p className="text-red-400 text-sm text-right mt-1">{errors.password.message}</p>
               )}
-              <p className="text-xs text-gray-400 text-right mt-2">
-                رمز عبور باید شامل حداقل ۸ کاراکتر، حروف بزرگ، حروف کوچک، عدد و علامت خاص باشد
+              <p className="text-xs text-gray-400 text-right mt-1">
+                رمز عبور باید شامل حداقل ۸ کاراکتر، حروف بزرگ، حروف کوچک، عدد و علامت خاص باشد.
               </p>
             </div>
 
@@ -322,151 +298,77 @@ export default function RegisterPage() {
               <input
                 {...register('confirmPassword')}
                 type="password"
-                placeholder="تکرار رمز عبور"
-                className={`w-full px-4 py-3 rounded-lg bg-gray-800/50 border-2 text-white placeholder-gray-400 text-right focus:outline-none focus:border-yellow-500 transition-all duration-300 ${
-                  errors.confirmPassword ? 'border-red-500' : 'border-gray-600'
+                placeholder="تکرار رمز عبور: *"
+                className={`w-full px-4 py-3 rounded-md bg-gray-700 text-white placeholder-gray-400 text-right ${
+                  errors.confirmPassword ? 'border border-red-500' : 'border border-gray-600'
                 }`}
               />
               {errors.confirmPassword && (
-                <p className="text-red-400 text-sm text-right mt-2">{errors.confirmPassword.message}</p>
+                <p className="text-red-400 text-sm text-right mt-1">{errors.confirmPassword.message}</p>
               )}
             </div>
 
             {/* قوانین و مقررات */}
-            <div className="flex flex-row-reverse items-start justify-end gap-x-3 p-4 bg-gray-800/30 rounded-lg border border-yellow-500/20">
+            <div className="flex flex-row-reverse items-center justify-end gap-x-2">
               <input
                 {...register('acceptedTerms')}
                 type="checkbox"
-                className={`accent-yellow-500 w-5 h-5 mt-1 ${
+                className={`accent-yellow-500 w-4 h-4 ${
                   errors.acceptedTerms ? 'outline outline-red-500' : ''
                 }`}
               />
-              <label className="text-sm text-gray-300 text-right flex-1">
-                <Link href="/terms" className="text-yellow-400 hover:text-yellow-300 underline font-medium">
+              <label className="text-sm text-gray-300 text-right">
+                <Link href="/terms" className="text-yellow-400 hover:text-yellow-300 underline">
                   قوانین و مقررات
                 </Link>
-                {' '}را مطالعه کرده‌ام و می‌پذیرم
+                را مطالعه کرده‌ام و می‌پذیرم
               </label>
             </div>
             {errors.acceptedTerms && (
-              <p className="text-red-400 text-sm text-right mt-2">{errors.acceptedTerms.message}</p>
+              <p className="text-red-400 text-sm text-right mt-1">{errors.acceptedTerms.message}</p>
             )}
 
             {/* دکمه ثبت‌نام */}
-            <motion.button
+            <button
               type="submit"
               disabled={isSubmitting || registerMutation.isPending}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full py-4 bg-gradient-to-r from-yellow-500 to-yellow-600 text-black font-bold rounded-lg shadow-lg hover:from-yellow-400 hover:to-yellow-500 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-lg"
+              className="w-full py-3 bg-yellow-500 text-black font-semibold rounded-md shadow-md hover:bg-yellow-400 transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting || registerMutation.isPending ? (
-                <span className="flex items-center justify-center gap-2">
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="w-5 h-5 border-2 border-black border-t-transparent rounded-full"
-                  />
-                  در حال ثبت‌نام...
-                </span>
-              ) : (
-                'ثبت‌نام و ایجاد حساب'
-              )}
-            </motion.button>
+              {isSubmitting || registerMutation.isPending ? 'در حال ثبت‌نام...' : 'ثبت‌نام'}
+            </button>
 
             {/* نمایش خطا */}
             {errors.root && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-red-500/20 border border-red-500/50 rounded-lg p-4"
-              >
-                <p className="text-red-400 text-sm text-right">{errors.root.message}</p>
-              </motion.div>
+              <p className="text-red-400 text-sm text-right mt-2">{errors.root.message}</p>
             )}
 
             {/* لینک ورود */}
-            <div className="text-center pt-4 border-t border-gray-700/50">
-              <p className="text-gray-400">
+            <div className="text-center mt-4">
+              <p className="text-gray-300">
                 قبلاً حساب دارید؟{' '}
-                <Link href="/login" className="text-yellow-400 hover:text-yellow-300 underline font-medium">
+                <Link href="/login" className="text-yellow-400 hover:text-yellow-300 underline">
                   وارد شوید
                 </Link>
               </p>
             </div>
           </form>
-        </motion.div>
+        </div>
 
-        {/* سایدبار لوگو */}
-        <motion.div 
-          initial={{ x: -50, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="w-full md:w-1/2 bg-gradient-to-br from-yellow-600/20 to-yellow-400/10 backdrop-blur-md border-r-2 border-yellow-500/50 rounded-l-2xl shadow-2xl flex items-center justify-center p-12"
-        >
+        {/* سایدبار تصویر */}
+        <div className="w-full md:w-1/2 bg-gray-700 border-l-2 border-yellow-500 rounded-l-xl shadow-xl flex items-center justify-center p-8">
           <div className="text-center">
-            {/* لوگو با استایل جدید */}
-            <motion.div 
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.8, type: "spring" }}
-              className="w-64 h-64 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-3xl flex items-center justify-center mx-auto mb-8 p-8 shadow-2xl border-2 border-yellow-300/30"
-            >
-              <Image 
-                src="/icons/handshake.png" 
-                alt="پارسا گلد" 
-                width={140} 
-                height={140}
-                className="object-contain drop-shadow-lg"
-              />
-            </motion.div>
-            
-            <motion.h3 
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.6, delay: 1 }}
-              className="text-4xl font-bold bg-gradient-to-r from-yellow-300 to-yellow-500 bg-clip-text text-transparent mb-4"
-            >
-              پارسا گلد
-            </motion.h3>
-            
-            <motion.p 
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.6, delay: 1.2 }}
-              className="text-gray-300 text-lg leading-relaxed max-w-md mx-auto"
-            >
-              <span className="block mb-2">پلتفرم امن و مطمئن برای</span>
-              <span className="text-yellow-400 font-semibold">معاملات طلا، نقره و نفت</span>
-            </motion.p>
-
-            {/* ویژگی‌ها */}
-            <motion.div 
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.6, delay: 1.4 }}
-              className="mt-8 grid grid-cols-2 gap-4 text-sm text-gray-400"
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span>امنیت بالا</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span>پشتیبانی 24/7</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span>کارمزد کم</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span>سرعت بالا</span>
-              </div>
-            </motion.div>
+            <Image 
+              src="/icons/handshake.png" 
+              alt="پارسا گلد" 
+              width={160} 
+              height={160}
+              className="mx-auto mb-6"
+            />
+            <h3 className="text-2xl font-bold text-yellow-400 mb-4">پارسا گلد</h3>
+            <p className="text-gray-300">پلتفرم مطمئن معاملات طلا، نقره و نفت</p>
           </div>
-        </motion.div>
+        </div>
       </div>
-    </motion.main>
+    </main>
   );
 }

@@ -1,67 +1,77 @@
-// frontend/src/contexts/AuthContext.tsx
+// فایل: src/contexts/AuthContext.tsx
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, LoginData, RegisterData } from '../types/api';
-import { authService } from '../services/apiService';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+
+interface User {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+}
 
 interface AuthContextType {
   user: User | null;
-  loading: boolean;
-  login: (data: LoginData) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
-  logout: () => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
   isAuthenticated: boolean;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    checkAuth();
+    // بررسی وجود توکن در localStorage هنگام لود اولیه
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      // TODO: اعتبارسنجی توکن با سرور
+      // برای حالا کاربر رو null می‌گذاریم
+      setUser(null);
+    }
+    setIsLoading(false);
   }, []);
 
-  const checkAuth = async () => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      try {
-        const userData = await authService.getProfile();
-        setUser(userData);
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        localStorage.removeItem('auth_token');
-      }
+  const login = async (email: string, password: string) => {
+    try {
+      setIsLoading(true);
+      // TODO: ارسال درخواست login به سرور
+      // const response = await fetch('/api/auth/login', {...});
+      
+      // شبیه‌سازی login موفق
+      const mockUser: User = {
+        id: 1,
+        email,
+        firstName: 'کاربر',
+        lastName: 'نمونه',
+        phone: '09123456789'
+      };
+      
+      setUser(mockUser);
+      localStorage.setItem('authToken', 'mock-token');
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
-    setLoading(false);
   };
 
-  const login = async (data: LoginData) => {
-    const response = await authService.login(data);
-    localStorage.setItem('auth_token', response.access_token);
-    setUser(response.user);
-  };
-
-  const register = async (data: RegisterData) => {
-    const response = await authService.register(data);
-    localStorage.setItem('auth_token', response.access_token);
-    setUser(response.user);
-  };
-
-  const logout = async () => {
-    localStorage.removeItem('auth_token');
+  const logout = () => {
     setUser(null);
+    localStorage.removeItem('authToken');
   };
 
   const value: AuthContextType = {
     user,
-    loading,
     login,
-    register,
     logout,
     isAuthenticated: !!user,
+    isLoading,
   };
 
   return (
@@ -69,12 +79,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
+}

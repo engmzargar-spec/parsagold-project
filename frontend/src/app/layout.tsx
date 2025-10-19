@@ -3,12 +3,13 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import QueryProvider from '@/providers/QueryProvider';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'پارسا گلد',
-  description: 'پلتفرم معاملات طلا، نقره و نفت',
+  title: 'پارسا گلد - معاملات طلا، نقره و نفت',
+  description: 'پلتفرم مطمئن برای معاملات آنلاین طلا، نقره و نفت',
 };
 
 export default function RootLayout({
@@ -20,7 +21,9 @@ export default function RootLayout({
     <html lang="fa" dir="rtl">
       <body className={inter.className}>
         <QueryProvider>
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>

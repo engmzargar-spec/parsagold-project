@@ -1,3 +1,4 @@
+// فایل: src/app/page.tsx
 'use client';
 
 import Image from 'next/image';
@@ -551,10 +552,10 @@ export default function Home() {
                   شروع معاملات
                 </button>
                 <button 
-                  onClick={() => handleNavigation('/education')}
+                  onClick={() => handleNavigation('/register')}
                   className="px-6 py-2 sm:px-8 sm:py-3 border-2 border-yellow-500 text-yellow-500 font-bold rounded-xl hover:bg-yellow-500 hover:text-black transition-all duration-300 hover:scale-105 text-sm sm:text-base shadow-lg"
                 >
-                  آموزش معامله
+                  عضویت رایگان
                 </button>
               </div>
             </div>

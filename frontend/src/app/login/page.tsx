@@ -193,16 +193,23 @@ export default function LoginPage() {
           </form>
         </div>
 
-        {/* بخش لوگو - با handshake.png */}
-        <div className="w-full md:w-1/2 bg-gray-800 rounded-2xl shadow-xl flex items-center justify-center p-8 mt-6 md:mt-0 md:ml-6">
-          <Image 
-            src="/icons/handshake.png" 
-            alt="ParsaGold Logo" 
-            width={240} 
-            height={240} 
-            className="max-w-full h-auto drop-shadow-lg" 
-            priority
-          />
+        {/* بخش لوگو - با لوگوی اصلی پارسا گلد */}
+        <div className="w-full md:w-1/2 bg-gray-800 border-l-2 border-yellow-500 rounded-l-2xl shadow-xl flex items-center justify-center p-8">
+          <div className="text-center">
+            {/* لوگوی اصلی پارسا گلد */}
+            <div className="w-64 h-64 mx-auto mb-6">
+              <Image 
+                src="/logo/Parsagold-main-logo.png" 
+                alt="پارسا گلد" 
+                width={256}
+                height={256}
+                className="object-contain w-full h-full"
+                priority
+              />
+            </div>
+            <h3 className="text-2xl font-bold text-yellow-400 mb-4">پارسا گلد</h3>
+            <p className="text-gray-300">پلتفرم مطمئن معاملات طلا، نقره و نفت</p>
+          </div>
         </div>
       </div>
     </main>
