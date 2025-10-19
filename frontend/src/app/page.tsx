@@ -362,7 +362,7 @@ export default function Home() {
           : 'bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 text-gray-900'
       }`}
       style={{
-        fontFamily: 'var(--font-parsagold), system-ui, sans-serif'
+        fontFamily: 'Vazirmatn, Tahoma, sans-serif'
       }}
     >
       {/* 🔼 هدر اصلی با لوگو */}
@@ -373,7 +373,7 @@ export default function Home() {
           
           {/* لوگوی پارساگلد - سایز مناسب */}
           <div className="flex-shrink-0">
-            <div className="w-48 h-16 md:w-56 md:h-20 relative">
+            <div className="w-48 h-16 md:w-46 md:h-35 relative">
               <Image
                 src="/logo/Parsagold-main-logo.png"
                 alt="پارساگلد - اتاق معامله آنلاین اُنس و نفت"

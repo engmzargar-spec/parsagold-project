@@ -1,11 +1,7 @@
-// فایل: src/app/layout.tsx
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 import QueryProvider from '@/providers/QueryProvider';
 import { AuthProvider } from '@/contexts/AuthContext';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'پارسا گلد - معاملات طلا، نقره و نفت',
@@ -19,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fa" dir="rtl">
-      <body className={inter.className}>
+      <body>
         <QueryProvider>
           <AuthProvider>
             {children}
