@@ -1,4 +1,4 @@
-// File: frontend/src/app/register/page.tsx
+// فایل کامل اصلاح شده register/page.tsx
 'use client';
 
 import React from 'react';
@@ -31,6 +31,8 @@ export default function RegisterPage() {
     defaultValues: {
       countryCode: '+98',
       os: typeof navigator !== 'undefined' ? navigator.platform : '',
+      country: 'ایران',
+      city: 'تهران',
     },
     mode: 'onChange',
   });
@@ -60,7 +62,6 @@ export default function RegisterPage() {
     onSuccess: (data) => {
       console.log('✅ ثبت‌نام موفقیت‌آمیز:', data);
       
-      // ذخیره اطلاعات کاربر در localStorage برای ماندگاری
       if (data.id) {
         localStorage.setItem('userId', data.id.toString());
         sessionStorage.setItem('userId', data.id.toString());
@@ -75,10 +76,7 @@ export default function RegisterPage() {
         email: data.email
       });
       
-      // نمایش پیام موفقیت
       alert('ثبت‌نام با موفقیت انجام شد! لطفاً وارد شوید.');
-      
-      // هدایت به صفحه ورود
       router.push('/login');
     },
     onError: (error: any) => {
@@ -91,7 +89,6 @@ export default function RegisterPage() {
     try {
       console.log('📝 داده‌های فرم:', data);
       
-      // اول validation رو چک کن
       const isFormValid = await trigger();
       if (!isFormValid) {
         console.log('❌ فرم معتبر نیست');
@@ -108,16 +105,17 @@ export default function RegisterPage() {
   };
 
   const nextStep = async () => {
-    // validation مخصوص هر مرحله
-    let fieldsToValidate: (keyof RegisterFormData)[] = [];
-    
+    const fieldsToValidate: string[] = [];
+
     if (currentStep === 1) {
-      fieldsToValidate = ['firstName', 'lastName', 'email', 'nationalCode'];
+      fieldsToValidate.push('firstName', 'lastName', 'email', 'nationalCode');
     } else if (currentStep === 2) {
-      fieldsToValidate = ['phone', 'password', 'confirmPassword'];
+      fieldsToValidate.push('phone');
+    } else if (currentStep === 3) {
+      fieldsToValidate.push('password', 'confirmPassword');
     }
-    
-    const isValid = await trigger(fieldsToValidate);
+
+    const isValid = await trigger(fieldsToValidate as any);
     if (isValid) {
       setCurrentStep(prev => prev + 1);
     } else {
@@ -128,6 +126,14 @@ export default function RegisterPage() {
   const prevStep = () => {
     setCurrentStep(prev => prev - 1);
   };
+
+  // لیست شهرهای ایران
+  const iranCities = [
+    'تهران', 'مشهد', 'اصفهان', 'کرج', 'تبریز', 'شیراز', 'اهواز', 'قم', 'کرمانشاه',
+    'ارومیه', 'رشت', 'زاهدان', 'کرمان', 'همدان', 'یزد', 'اردبیل', 'بندرعباس', 'اراک',
+    'اسلامشهر', 'زنجان', 'قزوین', 'خرم‌آباد', 'گرگان', 'ساری', 'قدس', 'کاشان', 'گلستان',
+    'سبزوار', 'نجف‌آباد', 'بوشهر', 'بیرجند', 'شاهین‌شهر', 'ورامین', 'پاکدشت', 'قرچک'
+  ];
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${
@@ -238,7 +244,7 @@ export default function RegisterPage() {
         >
           {/* نشانگر مراحل */}
           <div className="flex justify-center mb-4 md:mb-6">
-            {[1, 2, 3].map((step) => (
+            {[1, 2, 3, 4].map((step) => (
               <div key={step} className="flex items-center">
                 <div
                   className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs md:text-sm font-semibold transition-colors ${
@@ -253,7 +259,7 @@ export default function RegisterPage() {
                 >
                   {step}
                 </div>
-                {step < 3 && (
+                {step < 4 && (
                   <div
                     className={`w-4 md:w-8 h-1 mx-1 md:mx-2 transition-colors ${
                       currentStep > step 
@@ -353,13 +359,17 @@ export default function RegisterPage() {
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
                     {...register('nationalCode')}
                     className={`w-full px-2 md:px-3 py-2 text-sm md:text-base rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 transition-all border ${
                       isDarkMode 
                         ? 'bg-gray-700/50 border-gray-600 text-white focus:ring-yellow-500 focus:border-transparent' 
                         : 'bg-white border-amber-200 text-gray-900 focus:ring-amber-500 focus:border-amber-300'
                     }`}
-                    placeholder="۱۲۳۴۵۶۷۸۹۰"
+                    placeholder="1234567890"
+                    onInput={(e) => {
+                      e.currentTarget.value = e.currentTarget.value.replace(/[^0-9]/g, '');
+                    }}
                   />
                   {errors.nationalCode && (
                     <p className="text-red-400 text-xs mt-1">{errors.nationalCode.message}</p>
@@ -380,7 +390,7 @@ export default function RegisterPage() {
               </motion.div>
             )}
 
-            {/* Step 2: اطلاعات تماس و امنیتی */}
+            {/* Step 2: اطلاعات تماس */}
             {currentStep === 2 && (
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
@@ -390,7 +400,7 @@ export default function RegisterPage() {
                 <h3 className={`text-base md:text-lg font-semibold mb-2 md:mb-4 ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  اطلاعات تماس و امنیتی
+                  اطلاعات تماس
                 </h3>
 
                 <div>
@@ -415,20 +425,121 @@ export default function RegisterPage() {
                       ))}
                     </select>
                     <input
-                      type="tel"
+                      type="text"
+                      inputMode="numeric"
                       {...register('phone')}
                       className={`flex-1 px-2 md:px-3 py-2 text-sm md:text-base rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 transition-all border ${
                         isDarkMode 
                           ? 'bg-gray-700/50 border-gray-600 text-white focus:ring-yellow-500 focus:border-transparent' 
                           : 'bg-white border-amber-200 text-gray-900 focus:ring-amber-500 focus:border-amber-300'
                       }`}
-                      placeholder="۹۱۲۳۴۵۶۷۸۹"
+                      placeholder="912345678" // 9 رقم (بدون 0 اول)
+                      onInput={(e) => {
+                        // فقط اعداد رو قبول کن، 0 اول رو حذف کن، و محدود به 9 رقم
+                        let value = e.currentTarget.value.replace(/[^0-9]/g, '');
+                        // حذف 0 اول اگر وجود دارد
+                        if (value.startsWith('0')) {
+                          value = value.substring(1);
+                        }
+                        // محدود به 9 رقم
+                        e.currentTarget.value = value.slice(0, 9);
+                      }}
                     />
                   </div>
                   {errors.phone && (
                     <p className="text-red-400 text-xs mt-1">{errors.phone.message}</p>
                   )}
                 </div>
+
+                <div className="grid grid-cols-2 gap-2 md:gap-4">
+                  <div>
+                    <label className={`block text-xs md:text-sm font-medium mb-1 ${
+                      isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      کشور
+                    </label>
+                    <select
+                      {...register('country')}
+                      className={`w-full px-2 md:px-3 py-2 text-sm md:text-base rounded-lg focus:outline-none focus:ring-2 border ${
+                        isDarkMode 
+                          ? 'bg-gray-700/50 border-gray-600 text-white focus:ring-yellow-500' 
+                          : 'bg-white border-amber-200 text-gray-900 focus:ring-amber-500'
+                      }`}
+                    >
+                      <option value="ایران">ایران</option>
+                      <option value="افغانستان">افغانستان</option>
+                      <option value="ترکیه">ترکیه</option>
+                      <option value="عراق">عراق</option>
+                      <option value="سایر">سایر</option>
+                    </select>
+                    {errors.country && (
+                      <p className="text-red-400 text-xs mt-1">{errors.country.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className={`block text-xs md:text-sm font-medium mb-1 ${
+                      isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      شهر
+                    </label>
+                    <select
+                      {...register('city')}
+                      className={`w-full px-2 md:px-3 py-2 text-sm md:text-base rounded-lg focus:outline-none focus:ring-2 border ${
+                        isDarkMode 
+                          ? 'bg-gray-700/50 border-gray-600 text-white focus:ring-yellow-500' 
+                          : 'bg-white border-amber-200 text-gray-900 focus:ring-amber-500'
+                      }`}
+                    >
+                      {iranCities.map((city) => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
+                    {errors.city && (
+                      <p className="text-red-400 text-xs mt-1">{errors.city.message}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={prevStep}
+                    className={`flex-1 font-semibold py-2 md:py-3 rounded-lg transition-colors text-sm md:text-base ${
+                      isDarkMode 
+                        ? 'bg-gray-600 hover:bg-gray-500 text-white' 
+                        : 'bg-amber-200 hover:bg-amber-300 text-amber-700'
+                    }`}
+                  >
+                    بازگشت
+                  </button>
+                  <button
+                    type="button"
+                    onClick={nextStep}
+                    className={`flex-1 font-semibold py-2 md:py-3 rounded-lg transition-colors shadow-lg text-sm md:text-base ${
+                      isDarkMode 
+                        ? 'bg-yellow-500 hover:bg-yellow-400 text-black shadow-yellow-500/25' 
+                        : 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/25'
+                    }`}
+                  >
+                    ادامه
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Step 3: امنیت و رمز عبور */}
+            {currentStep === 3 && (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="space-y-3 md:space-y-4"
+              >
+                <h3 className={`text-base md:text-lg font-semibold mb-2 md:mb-4 ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  امنیت و رمز عبور
+                </h3>
 
                 <div>
                   <label className={`block text-xs md:text-sm font-medium mb-1 ${
@@ -440,18 +551,18 @@ export default function RegisterPage() {
                     <input
                       type={showPassword ? 'text' : 'password'}
                       {...register('password')}
-                      className={`w-full px-2 md:px-3 py-2 text-sm md:text-base rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 transition-all border pr-10 ${
+                      className={`w-full px-2 md:px-3 py-2 text-sm md:text-base rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 transition-all border ${
                         isDarkMode 
                           ? 'bg-gray-700/50 border-gray-600 text-white focus:ring-yellow-500 focus:border-transparent' 
                           : 'bg-white border-amber-200 text-gray-900 focus:ring-amber-500 focus:border-amber-300'
                       }`}
-                      placeholder="رمز عبور قوی"
+                      placeholder="رمز عبور قوی وارد کنید"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className={`absolute left-2 md:left-3 top-1/2 transform -translate-y-1/2 transition-colors text-sm ${
-                        isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-700'
+                      className={`absolute left-2 top-1/2 transform -translate-y-1/2 p-1 rounded ${
+                        isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
                       }`}
                     >
                       {showPassword ? '🙈' : '👁️'}
@@ -469,14 +580,14 @@ export default function RegisterPage() {
                     تکرار رمز عبور
                   </label>
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     {...register('confirmPassword')}
                     className={`w-full px-2 md:px-3 py-2 text-sm md:text-base rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 transition-all border ${
                       isDarkMode 
                         ? 'bg-gray-700/50 border-gray-600 text-white focus:ring-yellow-500 focus:border-transparent' 
                         : 'bg-white border-amber-200 text-gray-900 focus:ring-amber-500 focus:border-amber-300'
                     }`}
-                    placeholder="تکرار رمز عبور"
+                    placeholder="رمز عبور را تکرار کنید"
                   />
                   {errors.confirmPassword && (
                     <p className="text-red-400 text-xs mt-1">{errors.confirmPassword.message}</p>
@@ -510,8 +621,8 @@ export default function RegisterPage() {
               </motion.div>
             )}
 
-            {/* Step 3: تأیید نهایی */}
-            {currentStep === 3 && (
+            {/* Step 4: اطلاعات تکمیلی و قوانین */}
+            {currentStep === 4 && (
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -520,49 +631,98 @@ export default function RegisterPage() {
                 <h3 className={`text-base md:text-lg font-semibold mb-2 md:mb-4 ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  تأیید نهایی
+                  اطلاعات تکمیلی
                 </h3>
 
-                <div className={`rounded-lg p-3 md:p-4 space-y-2 text-sm md:text-base ${
-                  isDarkMode ? 'bg-gray-700/30' : 'bg-amber-100/50'
-                }`}>
-                  <div className="flex justify-between">
-                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>نام کامل:</span>
-                    <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{watch('firstName')} {watch('lastName')}</span>
+                <div className="grid grid-cols-2 gap-2 md:gap-4">
+                  <div>
+                    <label className={`block text-xs md:text-sm font-medium mb-1 ${
+                      isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      تاریخ تولد
+                    </label>
+                    <input
+                      type="date"
+                      {...register('dateOfBirth')}
+                      className={`w-full px-2 md:px-3 py-2 text-sm md:text-base rounded-lg focus:outline-none focus:ring-2 transition-all border ${
+                        isDarkMode 
+                          ? 'bg-gray-700/50 border-gray-600 text-white focus:ring-yellow-500 focus:border-transparent' 
+                          : 'bg-white border-amber-200 text-gray-900 focus:ring-amber-500 focus:border-amber-300'
+                      }`}
+                    />
                   </div>
-                  <div className="flex justify-between">
-                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>ایمیل:</span>
-                    <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{watch('email')}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>شماره تلفن:</span>
-                    <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{watch('countryCode')} {watch('phone')}</span>
+
+                  <div>
+                    <label className={`block text-xs md:text-sm font-medium mb-1 ${
+                      isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      جنسیت
+                    </label>
+                    <select
+                      {...register('gender')}
+                      className={`w-full px-2 md:px-3 py-2 text-sm md:text-base rounded-lg focus:outline-none focus:ring-2 border ${
+                        isDarkMode 
+                          ? 'bg-gray-700/50 border-gray-600 text-white focus:ring-yellow-500' 
+                          : 'bg-white border-amber-200 text-gray-900 focus:ring-amber-500'
+                      }`}
+                    >
+                      <option value="">انتخاب کنید</option>
+                      <option value="male">مرد</option>
+                      <option value="female">زن</option>
+                      <option value="other">سایر</option>
+                    </select>
                   </div>
                 </div>
 
-                <div className="flex items-start space-x-2 space-x-reverse">
+                <div>
+                  <label className={`block text-xs md:text-sm font-medium mb-1 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    آدرس
+                  </label>
+                  <textarea
+                    {...register('address')}
+                    rows={3}
+                    className={`w-full px-2 md:px-3 py-2 text-sm md:text-base rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 transition-all border ${
+                      isDarkMode 
+                        ? 'bg-gray-700/50 border-gray-600 text-white focus:ring-yellow-500 focus:border-transparent' 
+                        : 'bg-white border-amber-200 text-gray-900 focus:ring-amber-500 focus:border-amber-300'
+                    }`}
+                    placeholder="آدرس کامل خود را وارد کنید"
+                  />
+                </div>
+
+                <div>
+                  <label className={`block text-xs md:text-sm font-medium mb-1 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    کد پستی
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    {...register('postalCode')}
+                    className={`w-full px-2 md:px-3 py-2 text-sm md:text-base rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 transition-all border ${
+                      isDarkMode 
+                        ? 'bg-gray-700/50 border-gray-600 text-white focus:ring-yellow-500 focus:border-transparent' 
+                        : 'bg-white border-amber-200 text-gray-900 focus:ring-amber-500 focus:border-amber-300'
+                    }`}
+                    placeholder="۱۰ رقمی"
+                    onInput={(e) => {
+                      e.currentTarget.value = e.currentTarget.value.replace(/[^0-9]/g, '');
+                    }}
+                  />
+                </div>
+
+                <div className="flex items-start gap-2 p-3 rounded-lg border border-amber-200/50 bg-amber-50/50">
                   <input
                     type="checkbox"
                     {...register('agreeToTerms')}
-                    className={`w-4 h-4 mt-1 rounded focus:ring-2 flex-shrink-0 ${
-                      isDarkMode 
-                        ? 'text-yellow-500 bg-gray-700 border-gray-600 focus:ring-yellow-500' 
-                        : 'text-amber-600 bg-white border-amber-300 focus:ring-amber-500'
-                    }`}
+                    className="mt-1"
+                    id="agreeToTerms"
                   />
-                  <label className={`text-xs md:text-sm leading-relaxed ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    <span>با </span>
-                    <Link 
-                      href="/terms" 
-                      className={`underline transition-colors ${
-                        isDarkMode ? 'text-yellow-400 hover:text-yellow-300' : 'text-amber-600 hover:text-amber-500'
-                      }`}
-                    >
-                      قوانین و مقررات
-                    </Link>
-                    <span> پارسا گلد موافقم</span>
+                  <label htmlFor="agreeToTerms" className="text-xs md:text-sm text-amber-800">
+                    با <Link href="/terms" className="text-amber-600 hover:text-amber-700 underline">قوانین و مقررات</Link> پارسا گلد موافقم
                   </label>
                 </div>
                 {errors.agreeToTerms && (
@@ -583,51 +743,19 @@ export default function RegisterPage() {
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting || registerMutation.isPending || !isValid}
-                    className={`flex-1 font-semibold py-2 md:py-3 rounded-lg transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base ${
+                    disabled={isSubmitting}
+                    className={`flex-1 font-semibold py-2 md:py-3 rounded-lg transition-colors shadow-lg text-sm md:text-base ${
                       isDarkMode 
-                        ? 'bg-green-500 hover:bg-green-400 text-white shadow-green-500/25' 
-                        : 'bg-green-600 hover:bg-green-500 text-white shadow-green-600/25'
+                        ? 'bg-yellow-500 hover:bg-yellow-400 text-black shadow-yellow-500/25 disabled:bg-yellow-600 disabled:cursor-not-allowed' 
+                        : 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/25 disabled:bg-amber-400 disabled:cursor-not-allowed'
                     }`}
                   >
-                    {isSubmitting || registerMutation.isPending ? (
-                      <span className="flex items-center justify-center">
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          className={`w-4 h-4 md:w-5 md:h-5 border-2 rounded-full mr-2 ${
-                            isDarkMode 
-                              ? 'border-white border-t-transparent' 
-                              : 'border-white border-t-transparent'
-                          }`}
-                        />
-                        در حال ثبت‌نام...
-                      </span>
-                    ) : (
-                      'تأیید و ایجاد حساب'
-                    )}
+                    {isSubmitting ? 'در حال ثبت‌نام...' : 'ثبت‌نام'}
                   </button>
                 </div>
               </motion.div>
             )}
           </form>
-
-          {/* لینک ورود */}
-          <div className="mt-4 md:mt-6 text-center">
-            <p className={`text-xs md:text-sm ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              قبلاً حساب دارید؟{' '}
-              <Link
-                href="/login"
-                className={`font-semibold underline transition-colors ${
-                  isDarkMode ? 'text-yellow-400 hover:text-yellow-300' : 'text-amber-600 hover:text-amber-500'
-                }`}
-              >
-                وارد شوید
-              </Link>
-            </p>
-          </div>
         </motion.div>
       </motion.div>
     </div>

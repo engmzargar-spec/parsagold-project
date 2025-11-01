@@ -8,22 +8,28 @@ from dotenv import load_dotenv
 # بارگذاری متغیرهای محیطی
 load_dotenv()
 
-# تنظیمات دیتابیس
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://parsagold_user:password@localhost/parsagold")
+# تنظیمات دیتابیس - از SQLite برای توسعه استفاده می‌کنیم
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./parsagold.db")
 
 # ایجاد موتور دیتابیس
-engine = create_engine(
-    DATABASE_URL,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True
-)
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False}
+    )
+else:
+    engine = create_engine(
+        DATABASE_URL,
+        pool_size=10,
+        max_overflow=20,
+        pool_pre_ping=True
+    )
 
 # ایجاد session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base برای مدل‌ها
-Base = declarative_base()
+# Base برای مدل‌ها - از models.py شما استفاده می‌کنیم
+from .models.models import Base
 
 # Dependency برای گرفتن session دیتابیس
 def get_db():

@@ -12,6 +12,8 @@ interface MarketTime {
   marketClose: number;
   timeRemaining: string;
   progress: number;
+  emoji: string;
+  timeOfDay: string;
 }
 
 interface WorldMarketMapProps {

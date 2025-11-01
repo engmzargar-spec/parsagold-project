@@ -4,9 +4,9 @@ from typing import List
 from datetime import datetime
 
 from ..database import get_db
-from ..models import Trade, User, GoldPrice
-from ..schemas import TradeCreate, TradeResponse
-from ..auth import verify_token
+from ..models.models import Trade, User, GoldPrice
+from ..schemas.schemas import TradeCreate, TradeResponse
+from app.security.auth import verify_token
 
 router = APIRouter(prefix="/api/trades", tags=["trades"])
 

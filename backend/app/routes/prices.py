@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from ..database import get_db
-from ..models import GoldPrice
-from ..schemas import GoldPriceResponse
+from ..models.models import GoldPrice
+from ..schemas.schemas import GoldPriceResponse
 
 router = APIRouter(prefix="/api/prices", tags=["prices"])
 

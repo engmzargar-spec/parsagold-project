@@ -560,7 +560,7 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           {/* لوگو و عنوان */}
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 relative">
+            <div className="w-30 h-30 relative">
               <Image
                 src="/logo/Parsagold-main-logo.png"
                 alt="پارسا گلد"
@@ -570,14 +570,14 @@ export default function DashboardPage() {
               />
             </div>
             <div className="text-right">
-              <h1 className={`text-2xl font-bold bg-gradient-to-r bg-clip-text text-transparent ${
+              <h1 className={`text-4xl font-bold bg-gradient-to-r bg-clip-text text-transparent ${
                 isDark 
                   ? 'from-yellow-400 to-amber-500' 
                   : 'from-amber-600 to-orange-600'
               }`}>
                 پارسا گلد
               </h1>
-              <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              <p className={`text-xl ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 پلتفرم معاملات طلا، نقره و نفت
               </p>
             </div>
@@ -590,8 +590,8 @@ export default function DashboardPage() {
               <p className={`font-semibold ${isDark ? 'text-yellow-400' : 'text-amber-600'}`}>
                 خوش آمدید، {userData?.firstName || 'کاربر'}
               </p>
-              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                سطح: {userData?.level || 'طلایی'}
+              <p className={`text-l ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                 سطح کاربری: {userData?.level || 'طلایی'}
               </p>
             </div>
             
@@ -641,6 +641,9 @@ export default function DashboardPage() {
 
           {/* بخش اصلی محتوا */}
           <div className="flex-1 min-w-0">
+            {/* نقشه بازارهای جهانی - اضافه شده */}
+            <WorldMarketMap isDark={isDark} />
+
             {/* کارت‌های خلاصه وضعیت */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}

@@ -1,50 +1,39 @@
+# backend/app/security/auth.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
-from passlib.context import CryptContext
-from typing import Optional
-import bcrypt
+import os
+from dotenv import load_dotenv
 
 from ..database import get_db
-from ..models.models import User, UserRole, AccessGrade, Gender
-from ..schemas.schemas import Token, AdminToken, AdminLogin, UserLogin, UserCreate
+from ..models.models import User, UserRole, AccessGrade, Gender  # ✅ تغییر شده
+from ..schemas.schemas import Token, AdminToken, AdminLogin, UserLogin, UserCreate  # ✅ تغییر شده
+from app.security.encryption import HashService  # ✅ اضافه کردن سیستم رمزنگاری جدید
+
+load_dotenv()
 
 router = APIRouter()
 
 # تنظیمات JWT
-SECRET_KEY = "parsa-gold-super-secret-key-2024-change-in-production"
+SECRET_KEY = os.getenv("SECRET_KEY", "parsa-gold-secret-key-2024")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 ساعت
 
 # تنظیمات سیستم
 MAX_CHIEF_USERS = 3  # حداکثر تعداد کاربران چیف
 
+# ✅ استفاده از سیستم هش کردن جدید
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """بررسی رمز عبور با bcrypt"""
-    try:
-        if hashed_password.startswith("$2b$"):
-            return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
-        else:
-            import hashlib
-            return hashed_password == hashlib.sha256(plain_password.encode()).hexdigest()
-    except Exception as e:
-        print(f"❌ خطا در verify_password: {e}")
-        return False
+    """بررسی رمز عبور با سیستم جدید"""
+    return HashService.verify_password(plain_password, hashed_password)
 
 def get_password_hash(password: str) -> str:
-    """هش کردن رمز عبور با bcrypt"""
-    try:
-        salt = bcrypt.gensalt()
-        hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
-        return hashed.decode('utf-8')
-    except Exception as e:
-        print(f"❌ خطا در get_password_hash: {e}")
-        import hashlib
-        return hashlib.sha256(password.encode()).hexdigest()
+    """هش کردن رمز عبور با سیستم جدید"""
+    return HashService.hash_password(password)
 
-def detect_admin_role_from_email(email: str) -> Optional[UserRole]:
+def detect_admin_role_from_email(email: str):
     """تشخیص خودکار نقش ادمین بر اساس ایمیل"""
     admin_codes = {
         "adminpg1357": UserRole.ADMIN,
@@ -385,61 +374,3 @@ async def get_system_status(db: Session = Depends(get_db)):
         "admin_users": admin_count,
         "system_health": "healthy"
     }
-@router.post("/create-chief-admin")
-async def create_chief_admin_endpoint(db: Session = Depends(get_db)):
-    """
-    ایجاد کاربر Chief Admin برای تست - فقط برای محیط توسعه
-    """
-    try:
-        print("🚀 شروع ایجاد کاربر Chief Admin...")
-        
-        # بررسی وجود کاربر
-        existing_user = db.query(User).filter(User.username == "Chief-admin-zargar").first()
-        if existing_user:
-            db.delete(existing_user)
-            db.commit()
-            print("✅ کاربر قبلی حذف شد")
-        
-        # ایجاد هش رمز عبور با استفاده از تابع موجود
-        hashed_password = get_password_hash("Mezr@1360")
-        print(f"🔑 هش رمز عبور ایجاد شد")
-        
-        # ایجاد کاربر جدید
-        new_user = User(
-            username="Chief-admin-zargar",
-            email="eng.m.zargar@gmail.com",
-            first_name="مهدی",
-            last_name="زرگر",
-            phone="09163028498",
-            national_id="0069813663",
-            password=hashed_password,
-            role=UserRole.ADMIN,
-            access_grade=AccessGrade.CHIEF,
-            is_active=True,
-            needs_approval=False,
-            is_verified=True,
-            created_at=datetime.utcnow()
-        )
-        
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        
-        print("🎉 کاربر Chief Admin با موفقیت ایجاد شد!")
-        
-        return {
-            "message": "کاربر Chief Admin با موفقیت ایجاد شد",
-            "username": "Chief-admin-zargar",
-            "password": "Mezr@1360", 
-            "role": "ADMIN",
-            "access_grade": "CHIEF",
-            "status": "فعال"
-        }
-        
-    except Exception as e:
-        db.rollback()
-        print(f"❌ خطا در ایجاد کاربر: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"خطا در ایجاد کاربر: {str(e)}"
-        )
