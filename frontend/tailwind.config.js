@@ -1,5 +1,7 @@
+// tailwind.config.js
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class', // ✅ این خط حیاتی است
   content: [
     './src/**/*.{js,ts,jsx,tsx,mdx}',
   ],

@@ -10,10 +10,10 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.dirname(current_dir)
 sys.path.insert(0, backend_dir)
 
+print(f"🔧 Python path: {sys.path}")
+
 # ✅ ایمپورت SecurityMiddleware از پوشه security
 from app.security.middleware import SecurityMiddleware
-
-print(f"🔧 Python path: {sys.path}")
 
 # استفاده از lifespan
 @asynccontextmanager
@@ -28,6 +28,14 @@ async def lifespan(app: FastAPI):
         print("✅ جداول دیتابیس ایجاد شدند!")
     except Exception as e:
         print(f"⚠️ خطا در ایجاد دیتابیس: {e}")
+    
+    # ✅ ایجاد داده‌های اولیه - اینجا صدا زده میشه
+    try:
+        from app.seed_data import seed_initial_data
+        seed_initial_data()
+        print("✅ داده‌های اولیه ایجاد شدند!")
+    except Exception as e:
+        print(f"⚠️ خطا در ایجاد داده‌های اولیه: {e}")
     
     yield
     
