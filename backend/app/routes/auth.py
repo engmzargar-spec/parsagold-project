@@ -3,13 +3,20 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from typing import Optional
 import bcrypt
+import sys
+import os
 
-from ..database import get_db
-from ..models.models import User, UserRole, AccessGrade, Gender
-from ..schemas.schemas import Token, AdminToken, AdminLogin, UserLogin, UserCreate
+# ✅ اضافه کردن مسیر برای importهای صحیح
+current_dir = os.path.dirname(os.path.abspath(__file__))
+backend_dir = os.path.dirname(os.path.dirname(current_dir))
+sys.path.insert(0, backend_dir)
+
+# ✅ اصلاح importها
+from app.database import get_db
+from app.models.models import User, UserRole, AccessGrade, Gender, AdminUser
+from app.schemas.schemas import Token, AdminToken, AdminLogin, UserLogin, UserCreate
 
 router = APIRouter()
 
@@ -17,9 +24,6 @@ router = APIRouter()
 SECRET_KEY = "parsa-gold-super-secret-key-2024-change-in-production"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 ساعت
-
-# تنظیمات سیستم
-MAX_CHIEF_USERS = 3  # حداکثر تعداد کاربران چیف
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """بررسی رمز عبور با bcrypt"""
@@ -44,36 +48,31 @@ def get_password_hash(password: str) -> str:
         import hashlib
         return hashlib.sha256(password.encode()).hexdigest()
 
-def detect_admin_role_from_email(email: str) -> Optional[UserRole]:
-    """تشخیص خودکار نقش ادمین بر اساس ایمیل"""
-    admin_codes = {
-        "adminpg1357": UserRole.ADMIN,
-        "superadminpg2468": UserRole.SUPER_ADMIN
-    }
-    
-    for code, role in admin_codes.items():
-        if code in email:
-            return role
-    return None
-
-def check_chief_limit(db: Session) -> bool:
-    """بررسی تعداد کاربران چیف"""
-    chief_count = db.query(User).filter(
-        User.access_grade == AccessGrade.CHIEF,
-        User.is_active == True
-    ).count()
-    return chief_count < MAX_CHIEF_USERS
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 def authenticate_user(db: Session, username: str, password: str):
-    """احراز هویت کاربر"""
-    user = db.query(User).filter(User.username == username).first()
+    """احراز هویت کاربران عادی - CASE SENSITIVE"""
+    user = db.query(User).filter(User.username == username).first()  # ✅ دقیقاً همون
     if not user:
         return False
-    if not verify_password(password, user.password):
+    if not verify_password(password, user.password_hash):
         return False
     return user
+
+def authenticate_admin(db: Session, username: str, password: str):
+    """احراز هویت ادمین‌ها از جدول admin_users - CASE SENSITIVE"""
+    admin = db.query(AdminUser).filter(AdminUser.username == username).first()  # ✅ دقیقاً همون
+    
+    if not admin:
+        print(f"❌ کاربر ادمین یافت نشد: {username}")
+        return False
+    
+    if not verify_password(password, admin.password_hash):
+        print(f"❌ رمز عبور اشتباه برای: {username}")
+        return False
+    
+    print(f"✅ ادمین یافت شد: {admin.username}, نقش: {admin.role}")
+    return admin
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     """ایجاد توکن JWT"""
@@ -85,44 +84,6 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
-
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    """دریافت کاربر جاری از توکن"""
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-    
-    user = db.query(User).filter(User.username == username).first()
-    if user is None:
-        raise credentials_exception
-    return user
-
-async def get_current_admin_user(current_user: User = Depends(get_current_user)):
-    """بررسی اینکه کاربر جاری ادمین است"""
-    if not current_user.is_admin():
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="دسترسی غیرمجاز. فقط ادمین‌ها می‌توانند به این بخش دسترسی داشته باشند."
-        )
-    return current_user
-
-async def get_current_chief_user(current_user: User = Depends(get_current_admin_user)):
-    """بررسی اینکه کاربر جاری Chief است"""
-    if current_user.access_grade != AccessGrade.CHIEF:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="دسترسی غیرمجاز. فقط مدیران ارشد (Chief) می‌توانند به این بخش دسترسی داشته باشند."
-        )
-    return current_user
 
 @router.post("/login", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -143,7 +104,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user.username, "type": "user"}, expires_delta=access_token_expires
     )
     
     return {
@@ -152,50 +113,49 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         "user": user
     }
 
-@router.post("/admin-login", response_model=AdminToken)
+@router.post("/admin-login")
 async def admin_login(login_data: AdminLogin, db: Session = Depends(get_db)):
-    """لاگین ادمین‌ها - تغییر از ایمیل به نام کاربری"""
+    """لاگین ادمین‌ها از جدول admin_users - CASE SENSITIVE"""
     print(f"🔐 درخواست لاگین ادمین: {login_data.username}")
     
     try:
-        # تغییر فیلتر از email به username
-        user = db.query(User).filter(
-            User.username == login_data.username,
-            User.role.in_([UserRole.ADMIN, UserRole.SUPER_ADMIN])
+        # ✅ استفاده از case-sensitive query (دقیقاً همون)
+        admin = db.query(AdminUser).filter(
+            AdminUser.username == login_data.username  # ✅ دقیقاً همون چیزی که کاربر فرستاده
         ).first()
         
-        if not user:
+        if not admin:
             print(f"❌ کاربر ادمین یافت نشد: {login_data.username}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="نام کاربری یا رمز عبور نادرست"
             )
         
-        print(f"✅ کاربر یافت شد: {user.username}, نقش: {user.role}")
+        print(f"✅ ادمین یافت شد: {admin.username}, نقش: {admin.role}")
         
         # بررسی فعال بودن
-        if not user.is_active:
-            print(f"❌ کاربر غیرفعال است: {user.username}")
+        if not admin.is_active:
+            print(f"❌ ادمین غیرفعال است: {admin.username}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="حساب کاربری غیرفعال است"
             )
         
-        # بررسی نیاز به تایید (برای ادمین‌های جدید)
-        if user.needs_approval and user.role != UserRole.SUPER_ADMIN:
-            print(f"⚠️ کاربر نیاز به تایید دارد: {user.username}")
+        # بررسی تایید شدن (برای ادمین‌های جدید)
+        if not admin.is_approved and admin.role != 'chief':
+            print(f"⚠️ ادمین نیاز به تایید دارد: {admin.username}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="حساب کاربری شما نیاز به تایید مدیر ارشد دارد"
             )
         
         # بررسی رمز عبور
-        print(f"🔑 بررسی رمز عبور برای کاربر: {user.username}")
-        password_correct = verify_password(login_data.password, user.password)
+        print(f"🔑 بررسی رمز عبور برای ادمین: {admin.username}")
+        password_correct = verify_password(login_data.password, admin.password_hash)
         print(f"🔑 نتیجه بررسی رمز: {password_correct}")
         
         if not password_correct:
-            print(f"❌ رمز عبور نادرست برای کاربر: {user.username}")
+            print(f"❌ رمز عبور نادرست برای ادمین: {admin.username}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="نام کاربری یا رمز عبور نادرست"
@@ -204,242 +164,39 @@ async def admin_login(login_data: AdminLogin, db: Session = Depends(get_db)):
         # ایجاد توکن
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": user.username}, expires_delta=access_token_expires
+            data={"sub": admin.username, "type": "admin"}, expires_delta=access_token_expires
         )
         
-        print(f"🎉 لاگین موفق برای: {user.username}")
+        print(f"🎉 لاگین موفق برای ادمین: {admin.username}")
+        
         return {
             "access_token": access_token,
             "token_type": "bearer",
-            "admin": user
+            "admin": {
+                "id": admin.id,
+                "username": admin.username,
+                "email": admin.email,
+                "role": admin.role,
+                "full_name": admin.full_name,
+                "is_active": admin.is_active,
+                "is_approved": admin.is_approved
+            }
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ خطای سرور در لاگین: {e}")
+        print(f"❌ خطای سرور در لاگین ادمین: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="خطای سرور در پردازش درخواست"
         )
 
-@router.post("/register")
-async def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
-    """ثبت نام کاربر جدید با فیلدهای کامل و تشخیص خودکار ادمین"""
-    try:
-        # بررسی وجود کاربر با ایمیل، نام کاربری، تلفن یا کد ملی
-        existing_user = db.query(User).filter(
-            (User.email == user_data.email) | 
-            (User.username == user_data.username) |
-            (User.phone == user_data.phone) |
-            (User.national_id == user_data.national_id)
-        ).first()
-        
-        if existing_user:
-            if existing_user.email == user_data.email:
-                raise HTTPException(
-                    status_code=400,
-                    detail="کاربر با این ایمیل قبلاً ثبت شده است"
-                )
-            elif existing_user.username == user_data.username:
-                raise HTTPException(
-                    status_code=400,
-                    detail="کاربر با این نام کاربری قبلاً ثبت شده است"
-                )
-            elif existing_user.phone == user_data.phone:
-                raise HTTPException(
-                    status_code=400,
-                    detail="کاربر با این شماره تلفن قبلاً ثبت شده است"
-                )
-            elif existing_user.national_id == user_data.national_id:
-                raise HTTPException(
-                    status_code=400,
-                    detail="کاربر با این کد ملی قبلاً ثبت شده است"
-                )
-        
-        # تشخیص خودکار نقش از ایمیل
-        detected_role = detect_admin_role_from_email(user_data.email)
-        is_admin = detected_role is not None
-        
-        # تنظیم نقش و وضعیت تایید
-        if is_admin:
-            role = detected_role
-            needs_approval = True  # ادمین‌ها نیاز به تایید دارند
-            is_verified = False
-            access_grade = AccessGrade.GRADE1  # سطح دسترسی پیش‌فرض برای ادمین‌ها
-            
-            # اگر سوپر ادمین باشد، نیازی به تایید ندارد
-            if role == UserRole.SUPER_ADMIN:
-                needs_approval = False
-                is_verified = True
-        else:
-            role = UserRole.USER
-            needs_approval = False
-            is_verified = False
-            access_grade = None
-        
-        # ایجاد کاربر جدید با تمام فیلدها
-        user = User(
-            username=user_data.username,
-            email=user_data.email,
-            phone=user_data.phone,
-            first_name=user_data.first_name,
-            last_name=user_data.last_name,
-            national_id=user_data.national_id,
-            password=get_password_hash(user_data.password),
-            
-            # فیلدهای جدید
-            date_of_birth=user_data.date_of_birth,
-            gender=user_data.gender,
-            address=user_data.address,
-            postal_code=user_data.postal_code,
-            country=user_data.country,
-            city=user_data.city,
-            
-            role=role,
-            access_grade=access_grade,
-            needs_approval=needs_approval,
-            is_active=True,
-            is_verified=is_verified
-        )
-        
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        
-        user_type = "ادمین" if is_admin else "کاربر معمولی"
-        print(f"✅ {user_type} جدید ثبت نام کرد: {user.email} - {user.first_name} {user.last_name}")
-        
-        return {
-            "message": "کاربر با موفقیت ایجاد شد", 
-            "user_id": user.id,
-            "email": user.email,
-            "role": user.role.value,
-            "is_admin": is_admin,
-            "requires_approval": needs_approval,
-            "requires_verification": not is_verified
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        print(f"❌ خطا در ثبت نام کاربر: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="خطای سرور در ثبت نام کاربر"
-        )
+@router.get("/health")
+async def auth_health():
+    return {"status": "healthy", "service": "auth"}
 
-@router.get("/verify-token")
-async def verify_token(current_user: User = Depends(get_current_user)):
-    """بررسی اعتبار توکن"""
-    return {
-        "valid": True,
-        "user": {
-            "username": current_user.username,
-            "email": current_user.email,
-            "role": current_user.role.value,
-            "first_name": current_user.first_name,
-            "last_name": current_user.last_name,
-            "is_admin": current_user.is_admin()
-        }
-    }
-
-@router.get("/admin/check-access")
-async def check_admin_access(current_user: User = Depends(get_current_admin_user)):
-    """بررسی دسترسی ادمین"""
-    return {
-        "has_access": True,
-        "user": {
-            "id": current_user.id,
-            "username": current_user.username,
-            "email": current_user.email,
-            "role": current_user.role.value,
-            "access_grade": current_user.access_grade.value if current_user.access_grade else None,
-            "first_name": current_user.first_name,
-            "last_name": current_user.last_name,
-            "needs_approval": current_user.needs_approval
-        }
-    }
-
-# اضافه کردن endpoint برای بررسی وضعیت سیستم
-@router.get("/system/status")
-async def get_system_status(db: Session = Depends(get_db)):
-    """بررسی وضعیت سیستم و محدودیت‌ها"""
-    chief_count = db.query(User).filter(
-        User.access_grade == AccessGrade.CHIEF,
-        User.is_active == True
-    ).count()
-    
-    admin_count = db.query(User).filter(
-        User.role.in_([UserRole.ADMIN, UserRole.SUPER_ADMIN]),
-        User.is_active == True
-    ).count()
-    
-    return {
-        "chief_users": {
-            "current": chief_count,
-            "max_allowed": MAX_CHIEF_USERS,
-            "available": MAX_CHIEF_USERS - chief_count
-        },
-        "admin_users": admin_count,
-        "system_health": "healthy"
-    }
-@router.post("/create-chief-admin")
-async def create_chief_admin_endpoint(db: Session = Depends(get_db)):
-    """
-    ایجاد کاربر Chief Admin برای تست - فقط برای محیط توسعه
-    """
-    try:
-        print("🚀 شروع ایجاد کاربر Chief Admin...")
-        
-        # بررسی وجود کاربر
-        existing_user = db.query(User).filter(User.username == "Chief-admin-zargar").first()
-        if existing_user:
-            db.delete(existing_user)
-            db.commit()
-            print("✅ کاربر قبلی حذف شد")
-        
-        # ایجاد هش رمز عبور با استفاده از تابع موجود
-        hashed_password = get_password_hash("Mezr@1360")
-        print(f"🔑 هش رمز عبور ایجاد شد")
-        
-        # ایجاد کاربر جدید
-        new_user = User(
-            username="Chief-admin-zargar",
-            email="eng.m.zargar@gmail.com",
-            first_name="مهدی",
-            last_name="زرگر",
-            phone="09163028498",
-            national_id="0069813663",
-            password=hashed_password,
-            role=UserRole.ADMIN,
-            access_grade=AccessGrade.CHIEF,
-            is_active=True,
-            needs_approval=False,
-            is_verified=True,
-            created_at=datetime.utcnow()
-        )
-        
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        
-        print("🎉 کاربر Chief Admin با موفقیت ایجاد شد!")
-        
-        return {
-            "message": "کاربر Chief Admin با موفقیت ایجاد شد",
-            "username": "Chief-admin-zargar",
-            "password": "Mezr@1360", 
-            "role": "ADMIN",
-            "access_grade": "CHIEF",
-            "status": "فعال"
-        }
-        
-    except Exception as e:
-        db.rollback()
-        print(f"❌ خطا در ایجاد کاربر: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"خطا در ایجاد کاربر: {str(e)}"
-        )
+if __name__ == "__main__":
+    print("✅ auth router loaded successfully")

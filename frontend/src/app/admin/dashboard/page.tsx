@@ -41,7 +41,7 @@ export default function AdminDashboard() {
   const router = useRouter()
 
   useEffect(() => {
-    const token = localStorage.getItem('auth_token')
+    const token = localStorage.getItem('admin_token')
     if (!token) {
       router.push('/admin/login')
       return
@@ -61,20 +61,35 @@ export default function AdminDashboard() {
 
   const fetchUserInfo = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
-      const response = await fetch('http://localhost:8000/api/auth/admin/check-access', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setUserInfo(data.user)
+      const token = localStorage.getItem('admin_token')
+      const adminInfo = localStorage.getItem('admin_info')
+      
+      if (!token || !adminInfo) {
+        console.error('توکن یا اطلاعات کاربر یافت نشد')
+        handleLogout()
+        return
       }
+
+      // ✅ استفاده از اطلاعات ذخیره شده در localStorage از login
+      const userData = JSON.parse(adminInfo)
+      
+      // ✅ ساخت userInfo از داده‌های ذخیره شده
+      const userInfoData: UserInfo = {
+        id: userData.id || 1,
+        username: userData.username || 'admin',
+        email: userData.email || 'admin@parsagold.com',
+        first_name: userData.full_name?.split(' ')[0] || 'مدیر',
+        last_name: userData.full_name?.split(' ').slice(1).join(' ') || 'سیستم',
+        role: userData.role || 'chief',
+        access_grade: userData.role || 'chief',
+        needs_approval: !(userData.is_approved || true)
+      }
+      
+      setUserInfo(userInfoData)
+      
     } catch (error) {
       console.error('Error fetching user info:', error)
+      // ❌ خطا رو لاگ کن اما کاربر رو خارج نکن
     }
   }
 
@@ -129,8 +144,11 @@ export default function AdminDashboard() {
   }
 
   const handleLogout = () => {
+    // ✅ حذف تمام items مربوط به admin
     localStorage.removeItem('admin_token')
-    localStorage.removeItem('admin_email')
+    localStorage.removeItem('admin_username')
+    localStorage.removeItem('admin_grade')
+    localStorage.removeItem('admin_info')
     router.push('/admin/login')
   }
 
@@ -360,7 +378,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* بقیه کد بدون تغییر */}
       {/* کارت‌های آمار اصلی */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         <StatCard 
@@ -468,7 +485,7 @@ export default function AdminDashboard() {
   )
 }
 
-// کامپوننت کارت آمار (بدون تغییر)
+// کامپوننت کارت آمار
 function StatCard({ title, value, icon, subtitle, color, isDarkMode }: {
   title: string
   value: string | number
@@ -511,7 +528,7 @@ function StatCard({ title, value, icon, subtitle, color, isDarkMode }: {
   )
 }
 
-// کامپوننت کارت ماژول (بدون تغییر)
+// کامپوننت کارت ماژول
 function ModuleCard({ title, description, icon, href, color, isDarkMode }: {
   title: string
   description: string

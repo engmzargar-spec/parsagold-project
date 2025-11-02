@@ -35,7 +35,7 @@ class User(Base):
     first_name = Column(String)
     last_name = Column(String)
     national_id = Column(String, unique=True, index=True)
-    password = Column(String)
+    password_hash = Column(String)
     
     # فیلدهای جدید اضافه شده
     date_of_birth = Column(DateTime, nullable=True)
@@ -63,6 +63,36 @@ class User(Base):
     
     def is_chief(self):
         return self.is_admin() and self.access_grade == AccessGrade.CHIEF
+
+class AdminUser(Base):
+    __tablename__ = "admin_users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, index=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    email = Column(String(100), unique=True, index=True, nullable=True)
+    full_name = Column(String(100), nullable=True)
+    role = Column(String(20), default='admin')  # admin, chief, support, moderator
+    permissions = Column(Text, default='{"users": "read", "trades": "read"}')
+    is_active = Column(Boolean, default=True)
+    is_approved = Column(Boolean, default=False)
+    last_login = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<AdminUser {self.username} ({self.role})>"
+        
+    def has_permission(self, permission):
+        import json
+        try:
+            user_perms = json.loads(self.permissions)
+            return user_perms.get(permission, False)
+        except:
+            return False
+            
+    def is_chief(self):
+        return self.role == 'chief'
 
 class Trade(Base):
     __tablename__ = "trades"
@@ -128,7 +158,7 @@ class Ticket(Base):
     description = Column(String)
     status = Column(String, default="open")  # open, in_progress, resolved, closed
     priority = Column(String, default="medium")  # low, medium, high, urgent
-    assigned_admin_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    assigned_admin_id = Column(Integer, ForeignKey('admin_users.id'), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -137,7 +167,7 @@ class Message(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     ticket_id = Column(Integer, ForeignKey('tickets.id'))
-    sender_id = Column(Integer, ForeignKey('users.id'))
+    sender_id = Column(Integer)
     sender_type = Column(String)  # user, admin
     content = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -155,7 +185,8 @@ class SystemLog(Base):
     __tablename__ = "system_logs"
     
     id = Column(Integer, primary_key=True, index=True)
-    admin_id = Column(Integer, ForeignKey('users.id'), nullable=True)
+    admin_id = Column(Integer, ForeignKey('admin_users.id'), nullable=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     action = Column(String)
     description = Column(String, nullable=True)
     ip_address = Column(String, nullable=True)
