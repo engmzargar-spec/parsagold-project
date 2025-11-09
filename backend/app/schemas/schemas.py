@@ -34,6 +34,19 @@ class ApprovalStatus(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
 
+class AdminRole(str, Enum):
+    ADMIN = "admin"
+    SUPER_ADMIN = "super_admin"
+    CHIEF = "chief"
+    SUPPORT = "support"
+    MODERATOR = "moderator"
+
+class AccessLevel(str, Enum):
+    BASIC = "basic"
+    MEDIUM = "medium"
+    ADVANCED = "advanced"
+    FULL = "full"
+
 # User Schemas
 class UserBase(BaseModel):
     username: str
@@ -137,6 +150,64 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
+
+# ✅ AdminUser Schemas - جدید اضافه شده
+class AdminUserBase(BaseModel):
+    username: str
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    gender: Optional[Gender] = Gender.MALE
+    profile_image: Optional[str] = None
+    organizational_position: Optional[str] = None
+    role: Optional[AdminRole] = AdminRole.ADMIN
+    access_level: Optional[AccessLevel] = AccessLevel.BASIC
+    is_active: Optional[bool] = True
+    is_approved: Optional[bool] = False
+
+class AdminUserCreate(AdminUserBase):
+    password: str
+    confirm_password: str
+    
+    @validator('password')
+    def password_strength(cls, v):
+        if len(v) < 6:
+            raise ValueError('رمز عبور باید حداقل ۶ کاراکتر باشد')
+        return v
+    
+    @validator('confirm_password')
+    def passwords_match(cls, v, values):
+        if 'password' in values and v != values['password']:
+            raise ValueError('رمز عبور و تکرار آن مطابقت ندارند')
+        return v
+
+class AdminUserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    gender: Optional[Gender] = None
+    profile_image: Optional[str] = None
+    organizational_position: Optional[str] = None
+    role: Optional[AdminRole] = None
+    access_level: Optional[AccessLevel] = None
+    is_active: Optional[bool] = None
+    is_approved: Optional[bool] = None
+
+class AdminUserResponse(AdminUserBase):
+    id: int
+    last_login: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class AdminUserListResponse(BaseModel):
+    admins: List[AdminUserResponse]
+    total: int
+    page: int
+    page_size: int
 
 # Admin Management Schemas
 class AdminCreate(BaseModel):

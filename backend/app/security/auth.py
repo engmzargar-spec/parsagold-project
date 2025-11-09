@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from ..database import get_db
 from ..models.models import User, AdminUser, UserRole, AccessGrade, Gender
 from ..schemas.schemas import Token, AdminToken, AdminLogin, UserLogin, UserCreate
-from app.security.encryption import HashService
+from ..services.password_manager import verify_password, get_password_hash  # ✅ استفاده از سرویس مرکزی
 
 load_dotenv()
 
@@ -21,14 +21,8 @@ SECRET_KEY = os.getenv("SECRET_KEY", "parsa-gold-secret-key-2024")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 ساعت
 
-# ✅ استفاده از سیستم هش کردن جدید
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """بررسی رمز عبور با سیستم جدید"""
-    return HashService.verify_password(plain_password, hashed_password)
-
-def get_password_hash(password: str) -> str:
-    """هش کردن رمز عبور با سیستم جدید"""
-    return HashService.hash_password(password)
+# ❌ حذف کدهای تکراری - حالا از سرویس مرکزی استفاده می‌کنیم
+# pwd_context و توابع verify_password و get_password_hash حذف شدند
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
@@ -37,7 +31,7 @@ def authenticate_user(db: Session, username: str, password: str):
     user = db.query(User).filter(User.username == username).first()
     if not user:
         return False
-    if not verify_password(password, user.password_hash):
+    if not verify_password(password, user.password_hash):  # ✅ استفاده از سرویس مرکزی
         return False
     return user
 
@@ -46,7 +40,7 @@ def authenticate_admin(db: Session, username: str, password: str):
     admin = db.query(AdminUser).filter(AdminUser.username == username).first()
     if not admin:
         return False
-    if not verify_password(password, admin.password_hash):
+    if not verify_password(password, admin.password_hash):  # ✅ استفاده از سرویس مرکزی
         return False
     return admin
 
@@ -118,6 +112,10 @@ async def get_current_admin(token: str = Depends(oauth2_scheme), db: Session = D
         )
         
     return admin
+
+async def get_current_admin_user(current_admin: AdminUser = Depends(get_current_admin)):
+    """دریافت ادمین جاری - برای استفاده در admin_management"""
+    return current_admin
 
 async def get_current_chief_admin(current_admin: AdminUser = Depends(get_current_admin)):
     """بررسی اینکه ادمین جاری Chief است"""
@@ -192,7 +190,7 @@ async def admin_login(login_data: AdminLogin, db: Session = Depends(get_db)):
                 detail="حساب کاربری شما نیاز به تایید مدیر ارشد دارد"
             )
         
-        # بررسی رمز عبور
+        # بررسی رمز عبور - ✅ حالا از سرویس مرکزی استفاده می‌کنیم
         print(f"🔑 بررسی رمز عبور برای ادمین: {admin.username}")
         password_correct = verify_password(login_data.password, admin.password_hash)
         print(f"🔑 نتیجه بررسی رمز: {password_correct}")
@@ -260,7 +258,7 @@ async def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
                     detail="کاربر با این کد ملی قبلاً ثبت شده است"
                 )
         
-        # ایجاد کاربر عادی
+        # ایجاد کاربر عادی - ✅ استفاده از سرویس مرکزی برای هش کردن
         user = User(
             username=user_data.username,
             email=user_data.email,
@@ -268,7 +266,7 @@ async def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
             first_name=user_data.first_name,
             last_name=user_data.last_name,
             national_id=user_data.national_id,
-            password_hash=get_password_hash(user_data.password),
+            password_hash=get_password_hash(user_data.password),  # ✅ استفاده از سرویس مرکزی
             
             # فیلدهای جدید
             date_of_birth=user_data.date_of_birth,

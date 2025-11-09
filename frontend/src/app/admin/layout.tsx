@@ -48,19 +48,40 @@ export default function AdminLayout({
       return
     }
 
-    // برای صفحات دیگر، توکن را چک کن
+    // ✅ اصلاح: بررسی ساده و مستقیم بدون تاخیر
     const token = localStorage.getItem('admin_token')
-    console.log('🔑 Token check:', token ? 'Token exists' : 'No token')
+    const userData = localStorage.getItem('admin_user')
     
-    if (!token) {
-      console.log('❌ No token found, redirecting to login')
-      router.push('/admin/login')
+    console.log('🔑 Auth check:', { 
+      token: token ? `Exists (${token.substring(0, 10)}...)` : 'No token', 
+      userData: userData ? 'Exists' : 'No user data',
+      pathname 
+    })
+    
+    if (!token || !userData) {
+      console.log('❌ Missing auth data, redirecting to login')
+      // ✅ اصلاح: فقط یکبار redirect کنیم
+      setTimeout(() => {
+        router.push('/admin/login')
+      }, 100)
       return
     }
     
-    console.log('✅ User is authenticated')
-    setIsAuthenticated(true)
-    setLoading(false)
+    try {
+      // بررسی valid بودن user data
+      const user = JSON.parse(userData)
+      console.log('✅ User data valid, role:', user.role)
+      
+      setIsAuthenticated(true)
+      setLoading(false)
+    } catch (error) {
+      console.error('❌ Error parsing user data:', error)
+      localStorage.removeItem('admin_token')
+      localStorage.removeItem('admin_user')
+      setTimeout(() => {
+        router.push('/admin/login')
+      }, 100)
+    }
   }, [router, pathname])
 
   // اگر در صفحه login هستیم، فقط children را نمایش بده (بدون Layout مدیریتی)
@@ -70,12 +91,12 @@ export default function AdminLayout({
   }
 
   if (loading) {
-    console.log('⏳ Showing loading state')
+    console.log('⏳ Showing loading state for path:', pathname)
     return (
       <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
         isDarkMode 
           ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white' 
-          : 'bg-gradient-to-br from-amber-100 via-amber-50 to-amber-100 text-gray-900' // ✅ تغییر به قهوه‌ای‌تر
+          : 'bg-gradient-to-br from-amber-100 via-amber-50 to-amber-100 text-gray-900'
       }`}>
         <div className="flex flex-col items-center gap-3">
           <div className={`w-8 h-8 border-4 rounded-full animate-spin ${
@@ -92,12 +113,12 @@ export default function AdminLayout({
   }
 
   if (!isAuthenticated) {
-    console.log('🚫 User not authenticated, showing redirect state')
+    console.log('🚫 User not authenticated for path:', pathname)
     return (
       <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
         isDarkMode 
           ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white' 
-          : 'bg-gradient-to-br from-amber-100 via-amber-50 to-amber-100 text-gray-900' // ✅ تغییر به قهوه‌ای‌تر
+          : 'bg-gradient-to-br from-amber-100 via-amber-50 to-amber-100 text-gray-900'
       }`}>
         <div className="flex flex-col items-center gap-3">
           <div className={`w-8 h-8 border-4 rounded-full animate-spin ${
@@ -113,12 +134,12 @@ export default function AdminLayout({
     )
   }
 
-  console.log('🏠 Rendering full admin layout')
+  console.log('🏠 Rendering full admin layout for path:', pathname)
   return (
     <div className={`flex h-screen transition-colors duration-300 ${
       isDarkMode 
         ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white' 
-        : 'bg-gradient-to-br from-amber-100 via-amber-50 to-amber-100 text-gray-900' // ✅ تغییر به قهوه‌ای‌تر
+        : 'bg-gradient-to-br from-amber-100 via-amber-50 to-amber-100 text-gray-900'
     }`}>
       {/* سایدبار برای دسکتاپ */}
       <div className="hidden lg:flex lg:flex-shrink-0">
@@ -132,7 +153,7 @@ export default function AdminLayout({
             className={`fixed inset-0 transition-opacity ${
               isDarkMode 
                 ? 'bg-gray-900 bg-opacity-80' 
-                : 'bg-amber-900 bg-opacity-50' // ✅ تغییر به قهوه‌ای
+                : 'bg-amber-900 bg-opacity-50'
             }`}
             onClick={() => setSidebarOpen(false)}
           />

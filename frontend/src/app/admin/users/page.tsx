@@ -7,7 +7,6 @@ import Link from 'next/link'
 
 interface User {
   id: number
-  username: string
   email: string
   phone: string
   first_name: string
@@ -17,6 +16,7 @@ interface User {
   is_active: boolean
   is_verified: boolean
   created_at: string
+  last_login?: string
   country?: string
   city?: string
   gender?: string
@@ -55,15 +55,18 @@ export default function UsersManagement() {
         return
       }
 
-      // 🔧 اصلاح: حذف /api از URL
-      let url = `${API_BASE_URL}/admin/users/`
+      // ✅ اصلاح: استفاده از endpoint صحیح برای کاربران عادی
+      let url = `${API_BASE_URL}/api/admin/users`
+      
+      // اضافه کردن پارامترهای جستجو اگر وجود دارند
       if (searchQuery) {
-        url = `${API_BASE_URL}/admin/users/search?query=${encodeURIComponent(searchQuery)}`
+        url += `?search=${encodeURIComponent(searchQuery)}`
       }
 
       console.log('🔄 Fetching users from:', url)
 
       const response = await fetch(url, {
+        method: 'GET', // ✅ اضافه کردن متد GET
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -81,16 +84,26 @@ export default function UsersManagement() {
       if (!response.ok) {
         const errorText = await response.text()
         console.error('❌ Server error:', errorText)
+        
+        if (response.status === 405) {
+          throw new Error('متد درخواست نادرست است. لطفاً با توسعه‌دهنده تماس بگیرید.')
+        }
+        if (response.status === 404) {
+          throw new Error('آدرس سرویس یافت نشد. مطمئن شوید endpoint درست است.')
+        }
+        
         throw new Error(`خطا در سرور: ${response.status}`)
       }
 
-      const usersData = await response.json()
-      console.log('✅ Users loaded:', usersData.length)
-      setUsers(usersData)
+      const data = await response.json()
+      console.log('✅ Users loaded:', data)
+      
+      // ✅ اصلاح: استفاده از ساختار داده صحیح
+      setUsers(data.users || data || [])
       
     } catch (error) {
       console.error('❌ Error fetching users:', error)
-      setError('سرور در دسترس نیست. لطفاً از اجرا بودن بک‌اند مطمئن شوید.')
+      setError(error instanceof Error ? error.message : 'سرور در دسترس نیست. لطفاً از اجرا بودن بک‌اند مطمئن شوید.')
       // نمایش داده‌های نمونه برای تست رابط کاربری
       setUsers(getSampleUsers())
     } finally {
@@ -102,7 +115,6 @@ export default function UsersManagement() {
   const getSampleUsers = (): User[] => [
     {
       id: 1,
-      username: "user1",
       email: "user1@example.com",
       phone: "09123456789",
       first_name: "علی",
@@ -114,66 +126,96 @@ export default function UsersManagement() {
       created_at: "2024-01-15T10:30:00",
       country: "ایران",
       city: "تهران",
-      gender: "male"
+      gender: "male",
+      last_login: "2024-01-20T14:30:00"
     },
     {
       id: 2,
-      username: "admin1",
-      email: "admin@example.com",
+      email: "user2@example.com",
       phone: "09129876543",
-      first_name: "رضا",
-      last_name: "کریمی",
+      first_name: "فاطمه",
+      last_name: "احمدی",
       national_id: "0023456789",
-      role: "admin",
+      role: "user",
       is_active: true,
       is_verified: true,
       created_at: "2024-01-10T09:15:00",
       country: "ایران",
       city: "مشهد",
-      gender: "male"
+      gender: "female",
+      last_login: "2024-01-19T16:45:00"
     },
     {
       id: 3,
-      username: "user2",
-      email: "user2@example.com",
+      email: "user3@example.com",
       phone: "09127654321",
-      first_name: "مریم",
-      last_name: "احمدی",
+      first_name: "رضا",
+      last_name: "کریمی",
       national_id: "0034567890",
       role: "user",
       is_active: false,
-      is_verified: false,
+      is_verified: true,
       created_at: "2024-01-08T14:20:00",
       country: "ایران",
       city: "اصفهان",
+      gender: "male",
+      last_login: "2024-01-10T11:20:00"
+    },
+    {
+      id: 4,
+      email: "user4@example.com",
+      phone: "09121112233",
+      first_name: "سارا",
+      last_name: "رحیمی",
+      national_id: "0045678901",
+      role: "user",
+      is_active: true,
+      is_verified: false,
+      created_at: "2024-01-20T16:45:00",
+      country: "ایران",
+      city: "شیراز",
       gender: "female"
     }
   ]
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    fetchUsers(searchTerm)
+    if (searchTerm.trim()) {
+      fetchUsers(searchTerm)
+    } else {
+      fetchUsers()
+    }
   }
 
   const handleToggleActive = async (userId: number, currentStatus: boolean) => {
     try {
       const token = localStorage.getItem('admin_token')
-      // 🔧 اصلاح: حذف /api از URL
-      const response = await fetch(`${API_BASE_URL}/admin/users/${userId}/toggle-active`, {
-        method: 'PUT',
+      
+      // ✅ اصلاح: استفاده از endpoint صحیح برای کاربران
+      const url = `${API_BASE_URL}/api/admin/users/${userId}/toggle-active`
+      
+      console.log(`🔄 ${currentStatus ? 'Deactivating' : 'Activating'} user:`, url)
+
+      const response = await fetch(url, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({
+          is_active: !currentStatus
+        })
       })
 
       if (response.ok) {
+        // بروزرسانی وضعیت در state
         setUsers(prev => prev.map(user => 
           user.id === userId ? { ...user, is_active: !currentStatus } : user
         ))
         alert(`کاربر ${!currentStatus ? 'فعال' : 'غیرفعال'} شد`)
       } else {
-        throw new Error('خطا در تغییر وضعیت کاربر')
+        const errorText = await response.text()
+        throw new Error(errorText || 'خطا در تغییر وضعیت کاربر')
       }
     } catch (error) {
       console.error('Error toggling user status:', error)
@@ -184,30 +226,57 @@ export default function UsersManagement() {
   const handleVerifyUser = async (userId: number, currentStatus: boolean) => {
     try {
       const token = localStorage.getItem('admin_token')
-      // 🔧 اصلاح: حذف /api از URL
-      const response = await fetch(`${API_BASE_URL}/admin/users/${userId}/verify`, {
-        method: 'PUT',
+      
+      // ✅ اصلاح: استفاده از endpoint صحیح برای تأیید کاربران
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/verify`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          is_verified: !currentStatus,
-          verification_notes: `تغییر وضعیت توسط ادمین در ${new Date().toLocaleString('fa-IR')}`
+          is_verified: !currentStatus
         })
       })
 
       if (response.ok) {
+        // بروزرسانی وضعیت در state
         setUsers(prev => prev.map(user => 
           user.id === userId ? { ...user, is_verified: !currentStatus } : user
         ))
-        alert(`کاربر ${!currentStatus ? 'تایید' : 'لغو تایید'} شد`)
+        alert(`کاربر ${!currentStatus ? 'تایید' : 'رد'} شد`)
       } else {
-        throw new Error('خطا در تغییر وضعیت تایید')
+        const errorText = await response.text()
+        throw new Error(errorText || 'خطا در تغییر وضعیت تایید')
       }
     } catch (error) {
       console.error('Error verifying user:', error)
       alert('خطا در تغییر وضعیت تایید - سرور در دسترس نیست')
+    }
+  }
+
+  const handleResetPassword = async (userId: number) => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        alert(`رمز عبور کاربر ریست شد. رمز موقت: ${result.temp_password}`)
+      } else {
+        const errorText = await response.text()
+        throw new Error(errorText || 'خطا در ریست رمز عبور')
+      }
+    } catch (error) {
+      console.error('Error resetting password:', error)
+      alert('خطا در ریست رمز عبور')
     }
   }
 
@@ -234,7 +303,7 @@ export default function UsersManagement() {
   const getVerificationBadge = (isVerified: boolean) => {
     return isVerified ? 
       <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">تأیید شده</span> :
-      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">در انتظار</span>
+      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">در انتظار تأیید</span>
   }
 
   const formatDate = (dateString: string) => {
@@ -256,7 +325,7 @@ export default function UsersManagement() {
       {/* هدر */}
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-bold">مدیریت کاربران</h1>
+          <h1 className="text-2xl font-bold">مدیریت کاربران عادی</h1>
           <p className="text-gray-400 mt-1">{users.length} کاربر</p>
         </div>
         <div className="flex gap-3">
@@ -298,6 +367,16 @@ export default function UsersManagement() {
         </div>
       )}
 
+      {/* اطلاعات */}
+      <div className="bg-blue-900 border border-blue-700 p-4 rounded-lg mb-6">
+        <div className="flex items-center gap-3">
+          <div className="text-blue-300">💡</div>
+          <div className="text-sm">
+            <strong>توجه:</strong> این صفحه برای مدیریت کاربران عادی سیستم است.
+          </div>
+        </div>
+      </div>
+
       {/* جستجو */}
       <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-6">
         <form onSubmit={handleSearch} className="flex gap-4">
@@ -305,7 +384,7 @@ export default function UsersManagement() {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="جستجوی کاربران بر اساس نام، ایمیل، تلفن یا کد ملی..."
+            placeholder="جستجوی کاربران بر اساس نام، ایمیل یا تلفن..."
             className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <button 
@@ -357,6 +436,7 @@ export default function UsersManagement() {
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">وضعیت</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">تایید</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">تاریخ ثبت‌نام</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">آخرین ورود</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">عملیات</th>
                 </tr>
               </thead>
@@ -387,7 +467,6 @@ export default function UsersManagement() {
                       <div className="text-sm">
                         <div>{user.email}</div>
                         <div className="text-gray-400">{user.phone}</div>
-                        <div className="text-gray-400">{user.username}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -402,8 +481,12 @@ export default function UsersManagement() {
                     <td className="px-6 py-4 text-sm text-gray-300">
                       {formatDate(user.created_at)}
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-300">
+                      {user.last_login ? formatDate(user.last_login) : '---'}
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2 flex-wrap">
+                        {/* فعال/غیرفعال کردن */}
                         <button
                           onClick={() => handleToggleActive(user.id, user.is_active)}
                           className={`px-3 py-1 rounded text-xs ${
@@ -414,6 +497,8 @@ export default function UsersManagement() {
                         >
                           {user.is_active ? 'غیرفعال' : 'فعال'}
                         </button>
+
+                        {/* تأیید/رد کاربر */}
                         <button
                           onClick={() => handleVerifyUser(user.id, user.is_verified)}
                           className={`px-3 py-1 rounded text-xs ${
@@ -422,13 +507,23 @@ export default function UsersManagement() {
                               : 'bg-green-600 hover:bg-green-700'
                           } text-white transition-colors`}
                         >
-                          {user.is_verified ? 'لغو تایید' : 'تایید'}
+                          {user.is_verified ? 'رد تأیید' : 'تأیید'}
                         </button>
+
+                        {/* ریست رمز عبور */}
                         <button
-                          onClick={() => alert(`ویرایش کاربر ${user.id}`)}
+                          onClick={() => handleResetPassword(user.id)}
+                          className="px-3 py-1 bg-orange-600 hover:bg-orange-700 rounded text-xs text-white transition-colors"
+                        >
+                          ریست رمز
+                        </button>
+
+                        {/* مشاهده جزئیات */}
+                        <button
+                          onClick={() => alert(`مشاهده جزئیات کاربر ${user.id}`)}
                           className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs text-white transition-colors"
                         >
-                          ویرایش
+                          جزئیات
                         </button>
                       </div>
                     </td>

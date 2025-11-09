@@ -1,6 +1,7 @@
 // frontend/src/app/layout.tsx
 import type { Metadata } from 'next'
 import './globals.css'
+import QueryProvider from '@/providers/QueryProvider'
 
 export const metadata: Metadata = {
   title: 'پارسا گلد - سیستم معاملات طلا، نقره و نفت',
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="fa" dir="rtl">
       <body className="font-primary">
-        {children}
+        <QueryProvider>
+          {children}
+        </QueryProvider>
       </body>
     </html>
   )

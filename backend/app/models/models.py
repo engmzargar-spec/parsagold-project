@@ -21,13 +21,12 @@ class TradeType(enum.Enum):
     SELL = "sell"
 
 class Gender(enum.Enum):
-    MALE = "male"
-    FEMALE = "female"
-    OTHER = "other"
+    MALE = "MALE"
+    FEMALE = "FEMALE"
 
 class User(Base):
     __tablename__ = "users"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
@@ -36,16 +35,16 @@ class User(Base):
     last_name = Column(String)
     national_id = Column(String, unique=True, index=True)
     password_hash = Column(String)
-    
-    # فیلدهای جدید اضافه شده
+
     date_of_birth = Column(DateTime, nullable=True)
-    gender = Column(Enum(Gender), nullable=True)
+    gender = Column(Enum(Gender, name="gender"), default=Gender.MALE, nullable=True)
+
     address = Column(Text, nullable=True)
     postal_code = Column(String, nullable=True)
     country = Column(String, nullable=True)
     city = Column(String, nullable=True)
     is_verified = Column(Boolean, default=False)
-    
+
     role = Column(Enum(UserRole), default=UserRole.USER)
     access_grade = Column(Enum(AccessGrade), nullable=True)
     is_active = Column(Boolean, default=True)
@@ -57,32 +56,49 @@ class User(Base):
 
     def __repr__(self):
         return f"<User {self.email}>"
-    
+
     def is_admin(self):
         return self.role in [UserRole.ADMIN, UserRole.SUPER_ADMIN]
-    
+
     def is_chief(self):
         return self.is_admin() and self.access_grade == AccessGrade.CHIEF
 
 class AdminUser(Base):
     __tablename__ = "admin_users"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=True)
     full_name = Column(String(100), nullable=True)
-    role = Column(String(20), default='admin')  # admin, chief, support, moderator
+
+    phone = Column(String(20), unique=True, index=True, nullable=True)
+    national_id = Column(String(20), unique=True, index=True, nullable=True)
+
+    role = Column(String(20), default='admin')
     permissions = Column(Text, default='{"users": "read", "trades": "read"}')
     is_active = Column(Boolean, default=True)
     is_approved = Column(Boolean, default=False)
+
+    profile_image = Column(String(255), nullable=True)
+    gender = Column(Enum(Gender, name="admin_gender"), default=Gender.MALE, nullable=True)
+    address = Column(Text, nullable=True)
+    bank_account_number = Column(String(50), nullable=True)
+    sheba_number = Column(String(50), nullable=True)
+    bank_name = Column(String(100), nullable=True)
+    branch_name = Column(String(100), nullable=True)
+    branch_code = Column(String(20), nullable=True)
+
+    organizational_position = Column(String(100), nullable=True)
+    access_level = Column(String(20), default='basic')
+
     last_login = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     def __repr__(self):
         return f"<AdminUser {self.username} ({self.role})>"
-        
+
     def has_permission(self, permission):
         import json
         try:
@@ -90,13 +106,16 @@ class AdminUser(Base):
             return user_perms.get(permission, False)
         except:
             return False
-            
+
     def is_chief(self):
         return self.role == 'chief'
 
+    def is_super_admin(self):
+        return self.role == 'super_admin'
+
 class Trade(Base):
     __tablename__ = "trades"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     gold_type = Column(String)
@@ -110,7 +129,7 @@ class Trade(Base):
 
 class Portfolio(Base):
     __tablename__ = "portfolios"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     name = Column(String)
@@ -121,7 +140,7 @@ class Portfolio(Base):
 
 class GoldPrice(Base):
     __tablename__ = "gold_prices"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     gold_type = Column(String)
     price = Column(Float)
@@ -130,10 +149,10 @@ class GoldPrice(Base):
 
 class Transaction(Base):
     __tablename__ = "transactions"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
-    type = Column(String)  # deposit, withdrawal, trade
+    type = Column(String)
     amount = Column(Float)
     currency = Column(String, default="IRT")
     status = Column(String, default="pending")
@@ -142,7 +161,7 @@ class Transaction(Base):
 
 class Wallet(Base):
     __tablename__ = "wallets"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     currency = Column(String, default="IRT")
@@ -151,30 +170,30 @@ class Wallet(Base):
 
 class Ticket(Base):
     __tablename__ = "tickets"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     title = Column(String)
     description = Column(String)
-    status = Column(String, default="open")  # open, in_progress, resolved, closed
-    priority = Column(String, default="medium")  # low, medium, high, urgent
+    status = Column(String, default="open")
+    priority = Column(String, default="medium")
     assigned_admin_id = Column(Integer, ForeignKey('admin_users.id'), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class Message(Base):
     __tablename__ = "messages"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     ticket_id = Column(Integer, ForeignKey('tickets.id'))
     sender_id = Column(Integer)
-    sender_type = Column(String)  # user, admin
+    sender_type = Column(String)
     content = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class SystemConfig(Base):
     __tablename__ = "system_configs"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     config_key = Column(String, unique=True, index=True)
     config_value = Column(String)
@@ -183,7 +202,7 @@ class SystemConfig(Base):
 
 class SystemLog(Base):
     __tablename__ = "system_logs"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     admin_id = Column(Integer, ForeignKey('admin_users.id'), nullable=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True)

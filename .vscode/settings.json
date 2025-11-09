@@ -1,3 +1,30 @@
 {
-    "CodeGPT.apiKey": "CodeGPT Plus Beta"
+  // فقط با میانبر قالب‌دهی انجام بشه
+  "editor.formatOnSave": false,
+
+  // قالب‌دهنده برای پایتون
+  "python.formatting.provider": "autopep8",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.python"
+  },
+
+  // قالب‌دهنده برای TypeScript
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // قالب‌دهنده برای TSX (React با TypeScript)
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // قالب‌دهنده برای JavaScript
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // قالب‌دهنده برای JSON
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
 }

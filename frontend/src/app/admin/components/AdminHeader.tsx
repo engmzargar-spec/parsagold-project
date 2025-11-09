@@ -21,8 +21,8 @@ export default function AdminHeader({ onMenuClick, isDarkMode, toggleTheme }: Ad
   useEffect(() => {
     setIsMounted(true)
     
-    // بارگذاری اطلاعات کاربر
-    const adminInfo = localStorage.getItem('admin_info')
+    // بارگذاری اطلاعات کاربر از sessionStorage ✅ تغییر به sessionStorage
+    const adminInfo = sessionStorage.getItem('admin_info')
     if (adminInfo) {
       try {
         setUserInfo(JSON.parse(adminInfo))
@@ -55,27 +55,29 @@ export default function AdminHeader({ onMenuClick, isDarkMode, toggleTheme }: Ad
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('admin_token')
-    localStorage.removeItem('admin_info')
+    // حذف از sessionStorage به جای localStorage ✅ تغییر به sessionStorage
+    sessionStorage.removeItem('admin_token')
+    sessionStorage.removeItem('admin_info')
+    // فقط theme از localStorage پاک میشه چون کاربری نیست
     localStorage.removeItem('admin_theme')
     router.push('/admin/login')
   }
 
   if (!isMounted) {
     return (
-      <header className={`border-b transition-colors duration-300 ${
+      <header className={`transition-colors duration-300 ${
         isDarkMode 
-          ? 'bg-gray-800 border-gray-700' 
-          : 'bg-stone-700 border-stone-800 text-white' // ✅ تغییر به stone
+          ? 'bg-gray-800' 
+          : 'bg-stone-700 text-white'
       }`}>
-        <div className="px-4 sm:px-6 py-3">
+        <div className="px-4 sm:px-6 py-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className={`h-8 w-8 rounded animate-pulse ${
-                isDarkMode ? 'bg-gray-700' : 'bg-stone-600' // ✅ تغییر به stone
+                isDarkMode ? 'bg-gray-700' : 'bg-stone-600'
               }`}></div>
               <div className={`h-4 w-32 rounded animate-pulse ${
-                isDarkMode ? 'bg-gray-700' : 'bg-stone-600' // ✅ تغییر به stone
+                isDarkMode ? 'bg-gray-700' : 'bg-stone-600'
               }`}></div>
             </div>
           </div>
@@ -85,10 +87,10 @@ export default function AdminHeader({ onMenuClick, isDarkMode, toggleTheme }: Ad
   }
 
   return (
-    <header className={` transition-colors duration-300 ${
+    <header className={`transition-colors duration-300 ${
       isDarkMode 
-        ? 'bg-gray-800 ' 
-        : 'bg-stone-700  text-white' // ✅ تغییر به stone
+        ? 'bg-gray-800' 
+        : 'bg-stone-700 text-white'
     }`}>
       <div className="px-4 sm:px-6 py-10">
         <div className="flex items-center justify-between">
@@ -99,7 +101,7 @@ export default function AdminHeader({ onMenuClick, isDarkMode, toggleTheme }: Ad
               className={`p-2 rounded-lg transition-colors ${
                 isDarkMode 
                   ? 'text-gray-400 hover:bg-gray-700' 
-                  : 'text-stone-200 hover:bg-stone-600' // ✅ تغییر به stone
+                  : 'text-stone-200 hover:bg-stone-600'
               }`}
               aria-label="منو"
             >
@@ -109,15 +111,14 @@ export default function AdminHeader({ onMenuClick, isDarkMode, toggleTheme }: Ad
             </button>
 
             <div className="flex items-center gap-3">
-              
               <div className="hidden md:block">
                 <h1 className={`text-lg font-semibold ${
-                  isDarkMode ? 'text-white' : 'text-white' // ✅ متن سفید
+                  isDarkMode ? 'text-white' : 'text-white'
                 }`}>
                   پنل مدیریت پارسا گلد
                 </h1>
                 <p className={`text-xl ${
-                  isDarkMode ? 'text-gray-400' : 'text-stone-200' // ✅ تغییر به stone
+                  isDarkMode ? 'text-gray-400' : 'text-stone-200'
                 }`}>
                   سیستم معاملات طلا، نقره و نفت
                 </p>
@@ -129,12 +130,12 @@ export default function AdminHeader({ onMenuClick, isDarkMode, toggleTheme }: Ad
           <div className="hidden sm:flex items-center gap-4">
             <div className="text-center">
               <div className={`font-bold text-xl ${
-                isDarkMode ? 'text-yellow-400' : 'text-stone-100' // ✅ تغییر به stone
+                isDarkMode ? 'text-yellow-400' : 'text-stone-100'
               }`}>
                 {currentTime}
               </div>
               <div className={`text-xs ${
-                isDarkMode ? 'text-gray-400' : 'text-stone-300' // ✅ تغییر به stone
+                isDarkMode ? 'text-gray-400' : 'text-stone-300'
               }`}>
                 {currentDate}
               </div>
@@ -149,7 +150,7 @@ export default function AdminHeader({ onMenuClick, isDarkMode, toggleTheme }: Ad
               className={`p-3 rounded-lg transition-all duration-300 hover:scale-110 ${
                 isDarkMode 
                   ? 'bg-yellow-500 text-yellow-900 hover:bg-yellow-400' 
-                  : 'bg-yellow-600 text-white hover:bg-stone-500' // ✅ تغییر به stone
+                  : 'bg-yellow-600 text-white hover:bg-stone-500'
               }`}
               title={isDarkMode ? 'تغییر به تم روشن' : 'تغییر به تم تیره'}
             >
@@ -176,7 +177,7 @@ export default function AdminHeader({ onMenuClick, isDarkMode, toggleTheme }: Ad
                     {userInfo.full_name || 'مدیر سیستم'}
                   </div>
                   <div className={`text-xs ${
-                    isDarkMode ? 'text-gray-400' : 'text-stone-200' // ✅ تغییر به stone
+                    isDarkMode ? 'text-gray-400' : 'text-stone-200'
                   }`}>
                     {userInfo.role === 'chief' ? 'مدیر ارشد' : 'مدیر'}
                   </div>
@@ -184,7 +185,7 @@ export default function AdminHeader({ onMenuClick, isDarkMode, toggleTheme }: Ad
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
                   isDarkMode 
                     ? 'bg-gradient-to-br from-yellow-500 to-yellow-600' 
-                    : 'bg-gradient-to-br from-yellow-500 to-stone-600' // ✅ تغییر به stone
+                    : 'bg-gradient-to-br from-yellow-500 to-stone-600'
                 }`}>
                   {(userInfo.full_name?.[0] || 'م')}
                 </div>
@@ -197,7 +198,7 @@ export default function AdminHeader({ onMenuClick, isDarkMode, toggleTheme }: Ad
               className={`px-3 py-2 rounded-lg text-sm transition-colors ${
                 isDarkMode 
                   ? 'bg-red-600 hover:bg-red-700 text-white' 
-                  : 'bg-red-600 hover:bg-stone-500 text-white' // ✅ تغییر به stone
+                  : 'bg-red-600 hover:bg-stone-500 text-white'
               }`}
             >
               خروج

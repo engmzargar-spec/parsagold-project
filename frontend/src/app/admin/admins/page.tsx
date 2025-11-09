@@ -1,1945 +1,785 @@
 // frontend/src/app/admin/admins/page.tsx
-'use client';
+'use client'
 
-import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  Users, 
-  UserCheck, 
-  UserX, 
-  Shield, 
-  Crown, 
-  Search,
-  Edit,
-  Plus,
-  Key,
-  RefreshCw,
-  AlertCircle,
-  XCircle,
-  CheckCircle,
-  Mail,
-  Phone,
-  IdCard,
-  Calendar,
-  LogOut,
-  Sun,
-  Moon,
-  ArrowLeft,
-  Settings,
-  CheckSquare,
-  Square
-} from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
-import Image from 'next/image';
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { Admin, AdminFilters, AccessLevel } from './types/admin.types'
+import { useAdmins } from './hooks/useAdmins'
+import { AdminTable } from './components/AdminTable/AdminTable'
+import { AdminEditModal } from './components/AdminModals/AdminEditModal'
+import { AdminDetailModal } from './components/AdminModals/AdminDetailModal'
 
-interface Admin {
-  id: number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  phone: string;
-  national_id: string;
-  role: string;
-  access_grade: 'chief' | 'grade1' | 'grade2' | 'grade3';
-  is_active: boolean;
-  needs_approval: boolean;
-  balance: number;
-  created_at: string;
-}
+export default function AdminsManagement() {
+  console.log('🔴 AdminsManagement component rendered')
+  
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filters, setFilters] = useState<AdminFilters>({
+    role: 'all',
+    status: 'all',
+    approval: 'all',
+    gender: 'all',
+    access_level: 'all'
+  })
+  const [searchField, setSearchField] = useState('all')
+  
+  const [editingAdmin, setEditingAdmin] = useState<Admin | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [showAdminDetailModal, setShowAdminDetailModal] = useState(false)
+  const [showActivityLogModal, setShowActivityLogModal] = useState(false)
+  const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null)
+  const [activityLogs, setActivityLogs] = useState<any[]>([])
+  const [password, setPassword] = useState('')
+  const [currentAction, setCurrentAction] = useState<{type: string, admin?: Admin} | null>(null)
+  const [profileImage, setProfileImage] = useState<File | null>(null)
 
-interface Permission {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-}
+  const {
+    admins,
+    loading,
+    error,
+    currentAdmin,
+    fetchAdmins,
+    verifyPassword,
+    canModifyAdmin,
+    loadAdmins
+  } = useAdmins()
 
-interface AdminPermissions {
-  id: number;
-  admin_id: number;
-  permissions: string[];
-  created_at: string;
-  updated_at: string;
-}
+  const router = useRouter()
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
-const PERMISSIONS: Permission[] = [
-  // مدیریت ادمین‌ها
-  {
-    id: 'create_admin',
-    name: 'ایجاد کاربر ادمین جدید',
-    description: 'اجازه ایجاد ادمین جدید در سیستم',
-    category: 'مدیریت ادمین‌ها'
-  },
-  {
-    id: 'approve_admin',
-    name: 'تأیید کاربر ادمین جدید',
-    description: 'اجازه تأیید ادمین‌های در انتظار تأیید',
-    category: 'مدیریت ادمین‌ها'
-  },
-  {
-    id: 'toggle_admin_active',
-    name: 'فعال‌سازی و غیرفعال‌سازی کاربر ادمین',
-    description: 'اجازه فعال و غیرفعال کردن ادمین‌ها',
-    category: 'مدیریت ادمین‌ها'
-  },
-  {
-    id: 'edit_admin_info',
-    name: 'ویرایش اطلاعات کاربران ادمین',
-    description: 'اجازه ویرایش اطلاعات ادمین‌ها',
-    category: 'مدیریت ادمین‌ها'
-  },
-  {
-    id: 'reset_admin_password',
-    name: 'ریست رمز عبور ادمین',
-    description: 'اجازه ریست رمز عبور ادمین‌ها',
-    category: 'مدیریت ادمین‌ها'
-  },
-
-  // مدیریت کاربران عادی
-  {
-    id: 'view_users',
-    name: 'مشاهده اطلاعات کاربران عادی',
-    description: 'اجازه مشاهده لیست و اطلاعات کاربران عادی',
-    category: 'مدیریت کاربران'
-  },
-  {
-    id: 'edit_users',
-    name: 'ویرایش اطلاعات کاربران عادی',
-    description: 'اجازه ویرایش اطلاعات کاربران عادی',
-    category: 'مدیریت کاربران'
-  },
-
-  // پشتیبانی و اطلاع‌رسانی
-  {
-    id: 'view_tickets',
-    name: 'مشاهده تیکت‌ها و اعلان‌ها',
-    description: 'اجازه مشاهده تیکت‌های پشتیبانی و اعلان‌ها',
-    category: 'پشتیبانی'
-  },
-  {
-    id: 'manage_tickets',
-    name: 'پاسخ به تیکت‌ها و ارسال اعلان و ایمیل',
-    description: 'اجازه پاسخ به تیکت‌ها و ارسال اطلاع‌رسانی',
-    category: 'پشتیبانی'
-  },
-
-  // مالی و تراکنش‌ها
-  {
-    id: 'view_wallets',
-    name: 'مشاهده کیف پول کاربران عادی',
-    description: 'اجازه مشاهده موجودی و کیف پول کاربران',
-    category: 'مالی'
-  },
-  {
-    id: 'view_deposit_withdraw',
-    name: 'مشاهده تاریخچه واریز و برداشت',
-    description: 'اجازه مشاهده تاریخچه واریز و برداشت کاربران',
-    category: 'مالی'
-  },
-  {
-    id: 'view_portfolios',
-    name: 'مشاهده تاریخچه پورتفوهای کاربران',
-    description: 'اجازه مشاهده سبدهای سرمایه‌گذاری کاربران',
-    category: 'مالی'
-  },
-  {
-    id: 'view_trades',
-    name: 'مشاهده تاریخچه معاملات کاربران',
-    description: 'اجازه مشاهده تاریخچه معاملات کاربران عادی',
-    category: 'مالی'
-  }
-];
-
-const AdminManagementPage = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'pending' | 'inactive'>('all');
-  const [gradeFilter, setGradeFilter] = useState<'all' | 'chief' | 'grade1' | 'grade2' | 'grade3'>('all');
-  const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showPermissionModal, setShowPermissionModal] = useState(false);
-  const [selectedAdminForPermission, setSelectedAdminForPermission] = useState<Admin | null>(null);
-  const [adminPermissions, setAdminPermissions] = useState<string[]>([]);
-  const [actionLoading, setActionLoading] = useState<string>('');
-  const [isDarkMode, setIsDarkMode] = useState(true);
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [currentTime, setCurrentTime] = useState('');
-  const [currentDate, setCurrentDate] = useState('');
-
-  // State برای ایجاد ادمین جدید
-  const [newAdmin, setNewAdmin] = useState({
-    username: '',
-    email: '',
-    first_name: '',
-    last_name: '',
-    phone: '',
-    national_id: '',
-    password: '',
-    access_grade: 'grade3' as 'grade1' | 'grade2' | 'grade3'
-  });
-
-  // State برای ویرایش ادمین
-  const [editAdmin, setEditAdmin] = useState({
-    id: 0,
-    username: '',
-    email: '',
-    first_name: '',
-    last_name: '',
-    phone: '',
-    national_id: '',
-    access_grade: 'grade3' as 'grade1' | 'grade2' | 'grade3'
-  });
-
-  const queryClient = useQueryClient();
-  const router = useRouter();
-  const pathname = usePathname();
-  const API_BASE = 'http://localhost:8000';
-
+  // ✅ useEffect اصلاح شده - بدون infinite loop
   useEffect(() => {
-    // بررسی تم ذخیره شده
-    const savedTheme = localStorage.getItem('admin_theme');
-    const initialTheme = savedTheme ? savedTheme === 'dark' : true;
-    setIsDarkMode(initialTheme);
-    applyThemeToDocument(initialTheme);
+    console.log('🟡 useEffect triggered - checking authentication')
+    
+    // بررسی مستقیم localStorage
+    const token = localStorage.getItem('admin_token')
+    const userData = localStorage.getItem('admin_user')
+    
+    console.log('🔐 Direct localStorage check - Token:', !!token, 'User:', !!userData)
+    
+    if (!token || !userData) {
+      console.log('❌ Missing token or user data, redirecting to login')
+      router.push('/admin/login')
+      return
+    }
+    
+    try {
+      const user = JSON.parse(userData)
+      console.log('✅ User parsed successfully, role:', user.role)
+      
+      // بررسی دسترسی
+      if (user.role !== 'chief' && user.role !== 'super_admin') {
+        console.log('❌ User does not have permission, redirecting to dashboard')
+        router.push('/admin/dashboard')
+        return
+      }
+      
+      console.log('✅ User has permission, loading admins...')
+      loadAdmins() // ✅ استفاده از loadAdmins
+    } catch (error) {
+      console.error('❌ Error parsing user data:', error)
+      localStorage.removeItem('admin_token')
+      localStorage.removeItem('admin_user')
+      router.push('/admin/login')
+    }
+  }, [router]) // ✅ فقط router در dependency array
 
-    // دریافت اطلاعات کاربر
-    fetchCurrentUser();
-    
-    // بروزرسانی زمان
-    updateDateTime();
-    const timer = setInterval(updateDateTime, 1000);
-    
-    return () => clearInterval(timer);
-  }, []);
+  // دیباگ stateهای مودال
+  useEffect(() => {
+    console.log('🔍 Modal States:', {
+      showEditModal,
+      editingAdmin: editingAdmin?.full_name,
+      showCreateModal,
+      showPasswordModal,
+      showAdminDetailModal
+    })
+  }, [showEditModal, editingAdmin, showCreateModal, showPasswordModal, showAdminDetailModal])
 
-  const applyThemeToDocument = (dark: boolean) => {
-    const html = document.documentElement;
-    
-    if (dark) {
-      html.classList.add('dark');
-      html.classList.remove('light');
-      html.style.colorScheme = 'dark';
-      document.body.classList.add('dark');
-      document.body.classList.remove('light');
+  // 🔐 اعتبارسنجی رمز عبور - نسخه اصلاح شده
+const handleVerifyPassword = async (): Promise<boolean> => {
+  console.log('🟡 handleVerifyPassword called')
+  
+  // 🚨 غیرفعال کردن bypass موقت
+  const tempBypass = false // ✅ تغییر از true به false
+  
+  if (tempBypass) {
+    console.log('✅ TEMPORARY BYPASS: Password verification skipped')
+    setPassword('')
+    setShowPasswordModal(false)
+    return true
+  }
+
+  try {
+    const isVerified = await verifyPassword(password)
+    console.log('🔐 Password verification result:', isVerified)
+    if (isVerified) {
+      setPassword('')
+      setShowPasswordModal(false)
+      return true
     } else {
-      html.classList.add('light');
-      html.classList.remove('dark');
-      html.style.colorScheme = 'light';
-      document.body.classList.add('light');
-      document.body.classList.remove('light');
+      alert('رمز عبور اشتباه است')
+      setPassword('') // پاک کردن فیلد رمز
+      return false
     }
-  };
+  } catch (error) {
+    console.error('❌ Error verifying password:', error)
+    alert('خطا در اعتبارسنجی رمز عبور')
+    setPassword('') // پاک کردن فیلد رمز
+    return false
+  }
+}
 
-  const toggleTheme = () => {
-    const newTheme = !isDarkMode;
-    setIsDarkMode(newTheme);
-    localStorage.setItem('admin_theme', newTheme ? 'dark' : 'light');
-    applyThemeToDocument(newTheme);
-  };
+  // 🎯 شروع عملیات با درخواست رمز عبور
+  const startActionWithAuth = (type: string, admin?: Admin) => {
+    console.log('🎯 startActionWithAuth called:', { type, admin: admin?.full_name })
+    setCurrentAction({ type, admin })
+    setShowPasswordModal(true)
+  }
 
-  const fetchCurrentUser = async () => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      try {
-        const response = await fetch('http://localhost:8000/api/auth/admin/check-access', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setCurrentUser(data.user);
+  // 🔄 اجرای عملیات پس از تأیید رمز
+  const executeAction = async () => {
+    console.log('🟡 executeAction called with:', currentAction)
+    if (!currentAction) {
+      console.log('❌ No current action found')
+      return
+    }
+
+    const isVerified = await handleVerifyPassword()
+    console.log('🔐 executeAction - password verified:', isVerified)
+    
+    if (!isVerified) {
+      console.log('❌ Password verification failed')
+      return
+    }
+
+    console.log('✅ Password verified, executing action:', currentAction.type)
+
+    switch (currentAction.type) {
+      case 'edit':
+        if (currentAction.admin) {
+          console.log('🔄 Setting editing admin:', currentAction.admin.full_name)
+          setEditingAdmin(currentAction.admin)
+          setShowEditModal(true)
         }
-      } catch (error) {
-        console.error('Error fetching current user:', error);
-      }
+        break
+      case 'create':
+        console.log('🔄 Opening create modal')
+        setShowCreateModal(true)
+        break
     }
-  };
-
-  const updateDateTime = () => {
-    const now = new Date();
     
-    const time = now.toLocaleTimeString('fa-IR', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      second: '2-digit'
-    });
-    setCurrentTime(time);
-    
-    const jalaliDate = now.toLocaleDateString('fa-IR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'long'
-    });
-    setCurrentDate(jalaliDate);
-  };
+    setCurrentAction(null)
+  }
 
-  const handleLogout = () => {
-    localStorage.removeItem('admin_token');
-    localStorage.removeItem('admin_theme');
-    router.push('/admin/login');
-  };
+  // 📱 نمایش اطلاعات کامل ادمین
+  const showAdminDetails = (admin: Admin) => {
+    console.log('🎯 showAdminDetails called with:', admin.full_name)
+    setSelectedAdmin(admin)
+    setShowAdminDetailModal(true)
+  }
 
-  // Fetch admins
-  const { data: admins = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['admins'],
-    queryFn: async () => {
-      const token = localStorage.getItem('auth_token');
-      if (!token) throw new Error('توکن یافت نشد');
-
-      const response = await fetch(`${API_BASE}/api/admin/admins`, {
+  // 📊 نمایش تاریخچه فعالیت
+  const showActivityHistory = async (admin: Admin) => {
+    console.log('🎯 showActivityHistory called with:', admin.full_name)
+    setSelectedAdmin(admin)
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch(`${API_BASE_URL}/api/management/activity-logs/${admin.id}`, {
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error(`خطا در دریافت ادمین‌ها: ${response.status}`);
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setActivityLogs(data.logs || [])
+      } else {
+        setActivityLogs([])
       }
-      
-      const data = await response.json();
-      return data;
-    },
-    retry: 1,
-  });
+    } catch (error) {
+      console.error('❌ Error fetching activity logs:', error)
+      setActivityLogs([])
+    }
+    setShowActivityLogModal(true)
+  }
 
-  // Fetch pending approvals
-  const { data: pendingAdmins = [] } = useQuery({
-    queryKey: ['pending-admins'],
-    queryFn: async () => {
-      const token = localStorage.getItem('auth_token');
-      if (!token) throw new Error('توکن یافت نشد');
+  // ✏️ ویرایش ادمین
+  const handleEditAdmin = (admin: Admin) => {
+    console.log('🎯 handleEditAdmin called with:', admin.full_name)
+    startActionWithAuth('edit', admin)
+  }
 
-      const response = await fetch(`${API_BASE}/api/admin/pending-approvals`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        return [];
+  // 🔍 جستجو
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log('🔍 handleSearch called with term:', searchTerm)
+    fetchAdmins(searchTerm, filters)
+  }
+
+  // 🔄 فیلترها
+  const handleFilterChange = () => {
+    console.log('🔄 handleFilterChange called with filters:', filters)
+    fetchAdmins(searchTerm, filters)
+  }
+
+  // 🎯 مدیریت رویداد کلید Enter در مودال رمز عبور
+  const handlePasswordKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      console.log('↵ Enter key pressed in password modal')
+      executeAction()
+    }
+  }
+
+  // 📁 مدیریت آپلود عکس
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('لطفاً فقط فایل تصویری انتخاب کنید')
+        return
       }
-      
-      return response.json();
-    },
-    retry: 1,
-  });
+      if (file.size > 5 * 1024 * 1024) {
+        alert('حجم فایل نباید بیشتر از 5 مگابایت باشد')
+        return
+      }
+      setProfileImage(file)
+    }
+  }
 
-  // Calculate stats from admins data
-  const stats = React.useMemo(() => {
-    const totalAdmins = admins.length;
-    const activeAdmins = admins.filter((admin: Admin) => admin.is_active && !admin.needs_approval).length;
-    const pendingCount = pendingAdmins.length;
-    const chiefCount = admins.filter((admin: Admin) => 
-      admin.access_grade === 'chief' && admin.is_active && !admin.needs_approval
-    ).length;
+  // 📊 خروجی اکسل
+  const exportToExcel = () => {
+    console.log('📊 exportToExcel called')
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + "نام کامل,نام کاربری,ایمیل,نقش,سطح دسترسی,سمت سازمانی,وضعیت,تأیید,جنسیت,تلفن,تاریخ ایجاد\n"
+      + admins.map(admin => 
+          `"${admin.full_name}","${admin.username}","${admin.email}","${admin.role}","${getAccessLevelText(admin.access_level)}","${admin.organizational_position || ''}","${admin.is_active ? 'فعال' : 'غیرفعال'}","${admin.is_approved ? 'تأیید شده' : 'در انتظار'}","${getGenderText(admin.gender)}","${admin.phone}","${formatDate(admin.created_at)}"`
+        ).join("\n")
+    
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", "admins_list.csv")
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
-    return {
-      total_admins: totalAdmins,
-      active_admins: activeAdmins,
-      pending_approvals: pendingCount,
-      chief_count: chiefCount,
-    };
-  }, [admins, pendingAdmins]);
-
-  // ایجاد ادمین جدید
-  const createAdminMutation = useMutation({
-    mutationFn: async (adminData: any) => {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE}/api/admin/create-admin`, {
+  // ✅ تأیید ادمین
+  const handleApproveAdmin = async (adminId: number) => {
+    console.log('✅ handleApproveAdmin called for adminId:', adminId)
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch(`${API_BASE_URL}/api/management/approve-admin/${adminId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(adminData),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'خطای سرور' }));
-        throw new Error(errorData.detail || 'خطا در ایجاد ادمین');
-      }
-      
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admins'] });
-      setShowCreateModal(false);
-      setNewAdmin({
-        username: '',
-        email: '',
-        first_name: '',
-        last_name: '',
-        phone: '',
-        national_id: '',
-        password: '',
-        access_grade: 'grade3'
-      });
-      alert('ادمین جدید با موفقیت ایجاد شد و در انتظار تأیید است');
-    },
-    onError: (error: any) => {
-      alert(error.message);
-    },
-  });
+          'Content-Type': 'application/json'
+        }
+      })
 
-  // ویرایش ادمین
-  const editAdminMutation = useMutation({
-    mutationFn: async ({ adminId, adminData }: { adminId: number; adminData: any }) => {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE}/api/admin/update-admin/${adminId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(adminData),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'خطای سرور' }));
-        throw new Error(errorData.detail || 'خطا در ویرایش ادمین');
+      if (response.ok) {
+        const result = await response.json()
+        fetchAdmins(searchTerm, filters)
+        setShowAdminDetailModal(false)
+        alert(result.message || 'ادمین با موفقیت تأیید شد')
+      } else {
+        const errorData = await response.json()
+        alert(errorData.detail || 'خطا در تأیید ادمین')
       }
-      
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admins'] });
-      setShowEditModal(false);
-      alert('اطلاعات ادمین با موفقیت ویرایش شد');
-    },
-    onError: (error: any) => {
-      alert(error.message);
-    },
-  });
+    } catch (error) {
+      console.error('❌ Error approving admin:', error)
+      alert('خطا در تأیید ادمین')
+    }
+  }
 
-  // تأیید ادمین
-  const approveAdminMutation = useMutation({
-    mutationFn: async (adminId: number) => {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE}/api/admin/approve-admin/${adminId}`, {
+  // 🆕 ایجاد ادمین جدید
+  const handleCreateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log('🆕 handleCreateAdmin called')
+    const formData = new FormData(e.target as HTMLFormElement)
+    
+    try {
+      const token = localStorage.getItem('admin_token')
+      const adminData = {
+        username: formData.get('username') as string,
+        email: formData.get('email') as string,
+        full_name: formData.get('full_name') as string,
+        gender: formData.get('gender') as string,
+        phone: formData.get('phone') as string,
+        national_id: formData.get('national_id') as string,
+        address: formData.get('address') as string,
+        bank_account_number: formData.get('bank_account_number') as string,
+        sheba_number: formData.get('sheba_number') as string,
+        bank_name: formData.get('bank_name') as string,
+        branch_name: formData.get('branch_name') as string,
+        branch_code: formData.get('branch_code') as string,
+        role: formData.get('role') as string,
+        password: formData.get('password') as string
+      }
+
+      console.log('📦 Sending create admin request:', adminData)
+
+      const response = await fetch(`${API_BASE_URL}/api/management/create-admin`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'خطای سرور' }));
-        throw new Error(errorData.detail || 'خطا در تأیید ادمین');
-      }
-      
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admins', 'pending-admins'] });
-      setShowAdminModal(false);
-      alert('ادمین با موفقیت تأیید و فعال شد');
-    },
-    onError: (error: any) => {
-      alert(error.message);
-    },
-  });
+        body: JSON.stringify(adminData)
+      })
 
-  // تغییر سطح دسترسی
-  const changeGradeMutation = useMutation({
-    mutationFn: async ({ adminId, newGrade }: { adminId: number; newGrade: string }) => {
-      const token = localStorage.getItem('auth_token');
-      
-      if (newGrade === 'grade1') {
-        const response = await fetch(`${API_BASE}/api/admin/demote-to-grade1/${adminId}`, {
+      if (response.ok) {
+        const result = await response.json()
+        alert('ادمین جدید با موفقیت ایجاد شد')
+        setShowCreateModal(false)
+        fetchAdmins(searchTerm, filters)
+      } else {
+        const errorData = await response.json()
+        alert(errorData.detail || 'خطا در ایجاد ادمین')
+      }
+    } catch (error) {
+      console.error('❌ Error creating admin:', error)
+      alert('خطا در ایجاد ادمین جدید')
+    }
+  }
+
+  // ✏️ به‌روزرسانی ادمین
+  const handleUpdateAdmin = async (adminData: any) => {
+    console.log('✏️ handleUpdateAdmin called with data:', adminData)
+    if (!editingAdmin) {
+      console.log('❌ No editing admin found')
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('admin_token')
+
+      console.log('📦 Sending update request:', adminData)
+
+      // آپلود عکس اگر انتخاب شده
+      if (profileImage) {
+        const imageFormData = new FormData()
+        imageFormData.append('profile_image', profileImage)
+        
+        const imageResponse = await fetch(`${API_BASE_URL}/api/management/upload-profile-image/${editingAdmin.id}`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
           },
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ detail: 'خطای سرور' }));
-          throw new Error(errorData.detail || 'خطا در تغییر سطح دسترسی');
+          body: imageFormData
+        })
+
+        if (!imageResponse.ok) {
+          throw new Error('خطا در آپلود عکس')
         }
-        return response.json();
       }
-      
-      throw new Error('تغییر سطح دسترسی در حال حاضر فقط برای تبدیل Chief به Grade1 پشتیبانی می‌شود');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admins'] });
-      setActionLoading('');
-      setShowAdminModal(false);
-    },
-    onError: (error: any) => {
-      setActionLoading('');
-      alert(error.message);
-    },
-  });
 
-  // فعال/غیرفعال کردن ادمین
-  const toggleActiveMutation = useMutation({
-    mutationFn: async ({ adminId, active }: { adminId: number; active: boolean }) => {
-      const token = localStorage.getItem('auth_token');
-      const endpoint = active ? 'activate-admin' : 'deactivate-admin';
-      const response = await fetch(`${API_BASE}/api/admin/${endpoint}/${adminId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'خطای سرور' }));
-        throw new Error(errorData.detail || 'خطا در تغییر وضعیت ادمین');
-      }
-      
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admins'] });
-      setActionLoading('');
-      setShowAdminModal(false);
-    },
-    onError: (error: any) => {
-      setActionLoading('');
-      alert(error.message);
-    },
-  });
-
-  // ریست رمز عبور
-  const resetPasswordMutation = useMutation({
-    mutationFn: async (adminId: number) => {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE}/api/admin/reset-password/${adminId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'خطای سرور' }));
-        throw new Error(errorData.detail || 'خطا در ریست رمز عبور');
-      }
-      
-      return response.json();
-    },
-    onSuccess: (data: any) => {
-      setActionLoading('');
-      alert(data.message || 'رمز عبور با موفقیت ریست شد');
-      setShowAdminModal(false);
-    },
-    onError: (error: any) => {
-      setActionLoading('');
-      alert(error.message);
-    },
-  });
-
-  // مدیریت دسترسی‌ها
-  const fetchAdminPermissions = async (adminId: number) => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE}/api/admin/permissions/${adminId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setAdminPermissions(data.permissions || []);
-      } else {
-        setAdminPermissions([]);
-      }
-    } catch (error) {
-      console.error('Error fetching permissions:', error);
-      setAdminPermissions([]);
-    }
-  };
-
-  const updateAdminPermissionsMutation = useMutation({
-    mutationFn: async ({ adminId, permissions }: { adminId: number; permissions: string[] }) => {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`${API_BASE}/api/admin/permissions/${adminId}`, {
+      // استفاده از endpoint اصلی update-admin
+      const response = await fetch(`${API_BASE_URL}/api/management/update-admin/${editingAdmin.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ permissions }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'خطای سرور' }));
-        throw new Error(errorData.detail || 'خطا در بروزرسانی دسترسی‌ها');
+        body: JSON.stringify(adminData)
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setShowEditModal(false)
+        setEditingAdmin(null)
+        setProfileImage(null)
+        fetchAdmins(searchTerm, filters)
+        alert('اطلاعات با موفقیت به روز شد')
+      } else {
+        const errorData = await response.json()
+        alert(errorData.detail || 'خطا در ویرایش اطلاعات')
       }
-      
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admins'] });
-      setShowPermissionModal(false);
-      alert('دسترسی‌ها با موفقیت بروزرسانی شد');
-    },
-    onError: (error: any) => {
-      alert(error.message);
-    },
-  });
-
-  const handlePermissionToggle = (permissionId: string) => {
-    setAdminPermissions(prev => 
-      prev.includes(permissionId) 
-        ? prev.filter(p => p !== permissionId)
-        : [...prev, permissionId]
-    );
-  };
-
-  const handleOpenPermissionModal = (admin: Admin) => {
-    setSelectedAdminForPermission(admin);
-    fetchAdminPermissions(admin.id);
-    setShowPermissionModal(true);
-  };
-
-  const handleSavePermissions = () => {
-    if (selectedAdminForPermission) {
-      updateAdminPermissionsMutation.mutate({
-        adminId: selectedAdminForPermission.id,
-        permissions: adminPermissions
-      });
+    } catch (error) {
+      console.error('❌ Error updating admin:', error)
+      alert('خطا در ویرایش اطلاعات ادمین')
     }
-  };
-
-  const getGradeColor = (grade: string) => {
-    switch (grade) {
-      case 'chief': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      case 'grade1': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300';
-      case 'grade2': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
-      case 'grade3': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
-    }
-  };
-
-  const getGradeIcon = (grade: string) => {
-    switch (grade) {
-      case 'chief': return <Crown className="w-4 h-4" />;
-      case 'grade1': return <Shield className="w-4 h-4" />;
-      case 'grade2': return <Users className="w-4 h-4" />;
-      case 'grade3': return <Users className="w-4 h-4" />;
-      default: return <Users className="w-4 h-4" />;
-    }
-  };
-
-  const getGradeText = (grade: string) => {
-    switch (grade) {
-      case 'chief': return 'مدیر ارشد';
-      case 'grade1': return 'سطح ۱';
-      case 'grade2': return 'سطح ۲';
-      case 'grade3': return 'سطح ۳';
-      default: return grade;
-    }
-  };
-
-  // بررسی دسترسی کاربر فعلی
-  const canCreateAdmin = () => {
-    return currentUser && (currentUser.access_grade === 'grade1' || currentUser.role === 'super_admin');
-  };
-
-  const canEditAdmin = (admin: Admin) => {
-    if (!currentUser) return false;
-    if (currentUser.id === admin.id) return false;
-    return currentUser.access_grade === 'grade1' || currentUser.access_grade === 'grade2';
-  };
-
-  const canResetPassword = (admin: Admin) => {
-    if (!currentUser) return false;
-    if (currentUser.id === admin.id) return false;
-    return currentUser.access_grade === 'grade1' || currentUser.access_grade === 'grade2';
-  };
-
-  const canToggleActive = (admin: Admin) => {
-    if (!currentUser) return false;
-    if (currentUser.id === admin.id) return false;
-    return currentUser.access_grade === 'grade1';
-  };
-
-  const canApproveAdmin = (admin: Admin) => {
-    if (!currentUser) return false;
-    if (currentUser.id === admin.id) return false;
-    return currentUser.access_grade === 'grade1' || currentUser.access_grade === 'grade2';
-  };
-
-  const canManagePermissions = (admin: Admin) => {
-    if (!currentUser) return false;
-    if (currentUser.id === admin.id) return false;
-    return currentUser.access_grade === 'chief' || currentUser.access_grade === 'grade1';
-  };
-
-  // Filter admins based on search and filters
-  const filteredAdmins = admins.filter((admin: Admin) => {
-    const matchesSearch = 
-      admin.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      admin.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      admin.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      admin.phone?.includes(searchTerm) ||
-      admin.username?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus = 
-      statusFilter === 'all' ||
-      (statusFilter === 'active' && admin.is_active && !admin.needs_approval) ||
-      (statusFilter === 'pending' && admin.needs_approval) ||
-      (statusFilter === 'inactive' && !admin.is_active);
-
-    const matchesGrade = 
-      gradeFilter === 'all' || admin.access_grade === gradeFilter;
-
-    return matchesSearch && matchesStatus && matchesGrade;
-  });
-
-  const handleViewAdmin = (admin: Admin) => {
-    setSelectedAdmin(admin);
-    setShowAdminModal(true);
-  };
-
-  const handleEditAdmin = (admin: Admin) => {
-    setEditAdmin({
-      id: admin.id,
-      username: admin.username,
-      email: admin.email,
-      first_name: admin.first_name,
-      last_name: admin.last_name,
-      phone: admin.phone,
-      national_id: admin.national_id,
-      access_grade: admin.access_grade
-    });
-    setShowEditModal(true);
-  };
-
-  const handleCreateAdmin = () => {
-    createAdminMutation.mutate(newAdmin);
-  };
-
-  const handleUpdateAdmin = () => {
-    editAdminMutation.mutate({
-      adminId: editAdmin.id,
-      adminData: editAdmin
-    });
-  };
-
-  const handleApproveAdmin = (adminId: number) => {
-    if (window.confirm('آیا از تأیید این ادمین مطمئن هستید؟')) {
-      approveAdminMutation.mutate(adminId);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'} flex items-center justify-center`}>
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <div className={isDarkMode ? 'text-white' : 'text-gray-900'}>در حال بارگذاری ادمین‌ها...</div>
-        </div>
-      </div>
-    );
   }
 
-  if (error) {
+  // 🎯 Helper Functions
+  const getRoleBadge = (role: string) => {
+    const config: { [key: string]: { color: string, text: string } } = {
+      chief: { color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', text: 'مدیر ارشد' },
+      super_admin: { color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200', text: 'سوپر ادمین' },
+      admin: { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', text: 'ادمین' }
+    }
+
+    const roleConfig = config[role] || { color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200', text: role }
+
     return (
-      <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-        <div className="flex items-center justify-center h-64 flex-col">
-          <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-          <div className={isDarkMode ? 'text-red-400 text-lg' : 'text-red-600 text-lg'}>خطا در بارگذاری داده‌ها</div>
-          <div className={isDarkMode ? 'text-gray-400 mt-2' : 'text-gray-600 mt-2'}>{(error as Error).message}</div>
-          <button 
-            onClick={() => refetch()}
-            className={`mt-4 px-4 py-2 rounded-lg flex items-center transition-colors ${
-              isDarkMode 
-                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                : 'bg-blue-500 hover:bg-blue-600 text-white'
-            }`}
-          >
-            <RefreshCw className="w-4 h-4 ml-2" />
-            تلاش مجدد
-          </button>
-        </div>
-      </div>
-    );
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleConfig.color}`}>
+        {roleConfig.text}
+      </span>
+    )
   }
+
+  const getStatusBadge = (isActive: boolean) => {
+    return isActive ? (
+      <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium">فعال</span>
+    ) : (
+      <span className="px-2 py-1 bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 rounded-full text-xs font-medium">غیرفعال</span>
+    )
+  }
+
+  const getApprovalBadge = (isApproved: boolean) => {
+    return isApproved ? (
+      <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs font-medium">تأیید شده</span>
+    ) : (
+      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full text-xs font-medium">در انتظار تأیید</span>
+    )
+  }
+
+  // ✅ تابع جدید برای نمایش سطح دسترسی
+  const getAccessLevelBadge = (accessLevel: string) => {
+    const config: { [key: string]: { color: string, text: string } } = {
+      full: { color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', text: 'دسترسی کامل' },
+      advanced: { color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200', text: 'پیشرفته' },
+      medium: { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', text: 'متوسط' },
+      basic: { color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200', text: 'پایه' }
+    }
+
+    const levelConfig = config[accessLevel] || { color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200', text: accessLevel }
+
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${levelConfig.color}`}>
+        {levelConfig.text}
+      </span>
+    )
+  }
+
+  // ✅ تابع جدید برای متن سطح دسترسی
+  const getAccessLevelText = (accessLevel: string) => {
+    const config: { [key: string]: string } = {
+      full: 'دسترسی کامل',
+      advanced: 'پیشرفته',
+      medium: 'متوسط',
+      basic: 'پایه'
+    }
+    return config[accessLevel] || accessLevel
+  }
+
+  const getGenderText = (gender: string) => {
+    return gender === 'MALE' ? 'مرد' : gender === 'FEMALE' ? 'زن' : 'نامشخص'
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('fa-IR')
+  }
+
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleString('fa-IR')
+  }
+
+  const isChiefAdmin = currentAdmin?.role === 'chief'
+  const isSuperAdmin = currentAdmin?.role === 'super_admin'
+
+  console.log('🔍 Current state:', {
+    adminsCount: admins.length,
+    loading,
+    error,
+    currentAdmin,
+    showAdminDetailModal,
+    showEditModal,
+    showPasswordModal
+  })
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-      
-      {/* هدر یکپارچه */}
-      <header className={`border-b ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} p-4 sm:p-6`}>
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          {/* سمت راست - لوگو و اطلاعات */}
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => router.push('/admin/dashboard')}
-              className={`p-2 rounded-lg transition-colors ${
-                isDarkMode 
-                  ? 'bg-gray-700 hover:bg-gray-600 text-white' 
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-              }`}
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 relative">
-                <Image
-                  src="/logo/parsagold-main-logo.png"
-                  alt="پارسا گلد"
-                  width={40}
-                  height={40}
-                  className="object-contain"
-                  priority
-                />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">پارسا گلد - مدیریت ادمین‌ها</h1>
-                <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                  مدیریت کامل حساب‌های مدیریتی سیستم
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* وسط - تاریخ و زمان */}
-          <div className={`px-4 py-2 rounded-lg border text-center ${
-            isDarkMode 
-              ? 'bg-gray-700 border-gray-600' 
-              : 'bg-gray-50 border-gray-200'
-          }`}>
-            <div className="text-lg font-bold text-blue-500">{currentTime}</div>
-            <div className={`text-xs mt-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              {currentDate}
-            </div>
-          </div>
-
-          {/* سمت چپ - اطلاعات کاربر و دکمه‌ها */}
-          <div className="flex items-center gap-4">
-            {/* اطلاعات کاربر */}
-            {currentUser && (
-              <div className={`flex items-center gap-3 px-4 py-2 rounded-lg border ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600' 
-                  : 'bg-gray-50 border-gray-200'
-              }`}>
-                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                  {currentUser.first_name?.[0]}{currentUser.last_name?.[0]}
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-medium">
-                    {currentUser.first_name} {currentUser.last_name}
-                  </div>
-                  <div className={`text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                    @{currentUser.username}
-                  </div>
-                </div>
-                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getGradeColor(currentUser.access_grade || currentUser.role)}`}>
-                  <Shield className="w-3 h-3 ml-1" />
-                  {getGradeText(currentUser.access_grade || currentUser.role)}
-                </span>
-              </div>
-            )}
-
-            {/* دکمه تغییر تم */}
-            <button 
-              onClick={toggleTheme}
-              className={`p-2 rounded-lg transition-colors ${
-                isDarkMode 
-                  ? 'bg-gray-700 hover:bg-gray-600 text-yellow-400' 
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-              }`}
-              aria-label="تغییر تم"
-            >
-              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
-
-            {/* دکمه خروج */}
-            <button 
-              onClick={handleLogout}
-              className={`p-2 rounded-lg transition-colors ${
-                isDarkMode 
-                  ? 'bg-red-600 hover:bg-red-700 text-white' 
-                  : 'bg-red-500 hover:bg-red-600 text-white'
-              }`}
-              aria-label="خروج از سیستم"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div className="p-4 sm:p-6 space-y-6">
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <StatCard 
-            title="کل ادمین‌ها" 
-            value={stats.total_admins} 
-            icon="🛡️" 
-            subtitle={`${stats.active_admins} فعال`}
-            color="blue"
-            isDarkMode={isDarkMode}
-          />
-          <StatCard 
-            title="ادمین‌های فعال" 
-            value={stats.active_admins} 
-            icon="✅" 
-            subtitle={`${stats.total_admins - stats.active_admins} غیرفعال`}
-            color="green"
-            isDarkMode={isDarkMode}
-          />
-          <StatCard 
-            title="در انتظار تأیید" 
-            value={stats.pending_approvals} 
-            icon="⏳" 
-            subtitle="نیازمند تأیید"
-            color="yellow"
-            isDarkMode={isDarkMode}
-          />
-          <StatCard 
-            title="مدیران ارشد" 
-            value={stats.chief_count} 
-            icon="👑" 
-            subtitle="دسترسی کامل"
-            color="purple"
-            isDarkMode={isDarkMode}
-          />
-        </div>
-
-        {/* Filters and Search */}
-        <div className={`p-4 sm:p-6 rounded-lg border transition-colors ${
-          isDarkMode 
-            ? 'bg-gray-800 border-gray-700' 
-            : 'bg-white border-gray-200 shadow-sm'
-        }`}>
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* Search Input */}
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="جستجو بر اساس نام، ایمیل، شماره تماس..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full pr-10 pl-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                    isDarkMode
-                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                  }`}
-                />
-              </div>
-            </div>
-
-            {/* Status Filter */}
-            <div className="flex gap-4">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                className={`px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                  isDarkMode
-                    ? 'bg-gray-700 border-gray-600 text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                }`}
-              >
-                <option value="all">همه وضعیت‌ها</option>
-                <option value="active">فعال</option>
-                <option value="pending">در انتظار تأیید</option>
-                <option value="inactive">غیرفعال</option>
-              </select>
-
-              {/* Grade Filter */}
-              <select
-                value={gradeFilter}
-                onChange={(e) => setGradeFilter(e.target.value as any)}
-                className={`px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                  isDarkMode
-                    ? 'bg-gray-700 border-gray-600 text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                }`}
-              >
-                <option value="all">همه سطوح</option>
-                <option value="chief">مدیر ارشد</option>
-                <option value="grade1">سطح ۱</option>
-                <option value="grade2">سطح ۲</option>
-                <option value="grade3">سطح ۳</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* دکمه‌های action */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-bold">لیست ادمین‌ها</h2>
-            <p className={`mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              مدیریت کامل حساب‌های مدیریتی سیستم
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <button 
-              onClick={() => refetch()}
-              className={`px-4 py-2 rounded-lg flex items-center transition-colors ${
-                isDarkMode 
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                  : 'bg-blue-500 hover:bg-blue-600 text-white'
-              }`}
-            >
-              <RefreshCw className="w-4 h-4 ml-2" />
-              بروزرسانی
-            </button>
-            
-            {/* دکمه ایجاد ادمین جدید - فقط برای سطح 1 و سوپر ادمین */}
-            {canCreateAdmin() && (
-              <button 
-                onClick={() => setShowCreateModal(true)}
-                className={`px-4 py-2 rounded-lg flex items-center transition-colors ${
-                  isDarkMode 
-                    ? 'bg-green-600 hover:bg-green-700 text-white' 
-                    : 'bg-green-500 hover:bg-green-600 text-white'
-                }`}
-              >
-                <Plus className="w-4 h-4 ml-2" />
-                ایجاد ادمین جدید
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Admins Table */}
-        <div className={`rounded-lg border overflow-hidden transition-colors ${
-          isDarkMode 
-            ? 'bg-gray-800 border-gray-700' 
-            : 'bg-white border-gray-200 shadow-sm'
-        }`}>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
-                <tr>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider">
-                    <span className={isDarkMode ? 'text-gray-300' : 'text-gray-500'}>ادمین</span>
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider">
-                    <span className={isDarkMode ? 'text-gray-300' : 'text-gray-500'}>سطح دسترسی</span>
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider">
-                    <span className={isDarkMode ? 'text-gray-300' : 'text-gray-500'}>وضعیت</span>
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider">
-                    <span className={isDarkMode ? 'text-gray-300' : 'text-gray-500'}>تاریخ ایجاد</span>
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider">
-                    <span className={isDarkMode ? 'text-gray-300' : 'text-gray-500'}>اقدامات</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${
-                isDarkMode ? 'divide-gray-700 bg-gray-800' : 'divide-gray-200 bg-white'
-              }`}>
-                {filteredAdmins.map((admin: Admin) => (
-                  <tr 
-                    key={admin.id} 
-                    className={`transition-colors ${
-                      isDarkMode ? 'hover:bg-gray-750' : 'hover:bg-gray-50'
-                    }`}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${
-                          isDarkMode ? 'bg-blue-900' : 'bg-blue-100'
-                        }`}>
-                          <Users className={`w-5 h-5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                        </div>
-                        <div className="mr-4">
-                          <div className="text-sm font-medium">
-                            {admin.first_name} {admin.last_name}
-                          </div>
-                          <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            {admin.email}
-                          </div>
-                          <div className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            {admin.phone}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getGradeColor(admin.access_grade)}`}>
-                        {getGradeIcon(admin.access_grade)}
-                        <span className="mr-1">{getGradeText(admin.access_grade)}</span>
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {admin.needs_approval ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
-                            <UserCheck className="w-3 h-3 ml-1" />
-                            در انتظار تأیید
-                          </span>
-                        ) : admin.is_active ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
-                            <CheckCircle className="w-3 h-3 ml-1" />
-                            فعال
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
-                            <UserX className="w-3 h-3 ml-1" />
-                            غیرفعال
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>
-                        {new Date(admin.created_at).toLocaleDateString('fa-IR')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex flex-wrap gap-2">
-                        {/* دکمه مشاهده جزئیات */}
-                        <button 
-                          onClick={() => handleViewAdmin(admin)}
-                          className={`inline-flex items-center px-3 py-1 rounded-md text-sm transition-colors ${
-                            isDarkMode
-                              ? 'bg-blue-900 text-blue-300 hover:bg-blue-800'
-                              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                          }`}
-                        >
-                          <Edit className="w-3 h-3 ml-1" />
-                          مشاهده
-                        </button>
-                        
-                        {/* دکمه ویرایش - برای سطح 1 و 2 */}
-                        {canEditAdmin(admin) && (
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditAdmin(admin);
-                            }}
-                            className={`inline-flex items-center px-3 py-1 rounded-md text-sm transition-colors ${
-                              isDarkMode
-                                ? 'bg-green-900 text-green-300 hover:bg-green-800'
-                                : 'bg-green-100 text-green-700 hover:bg-green-200'
-                            }`}
-                          >
-                            <Edit className="w-3 h-3 ml-1" />
-                            ویرایش
-                          </button>
-                        )}
-                        
-                        {/* دکمه ریست رمز عبور - برای سطح 1 و 2 */}
-                        {canResetPassword(admin) && (
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (window.confirm(`آیا از ریست رمز عبور "${admin.first_name} ${admin.last_name}" مطمئن هستید؟`)) {
-                                setActionLoading('reset-password');
-                                resetPasswordMutation.mutate(admin.id);
-                              }
-                            }}
-                            disabled={actionLoading === 'reset-password'}
-                            className={`inline-flex items-center px-3 py-1 rounded-md text-sm transition-colors ${
-                              isDarkMode
-                                ? 'bg-red-900 text-red-300 hover:bg-red-800'
-                                : 'bg-red-100 text-red-700 hover:bg-red-200'
-                            } disabled:opacity-50`}
-                          >
-                            <Key className="w-3 h-3 ml-1" />
-                            ریست رمز
-                          </button>
-                        )}
-                        
-                        {/* دکمه فعال/غیرفعال - فقط برای سطح 1 */}
-                        {canToggleActive(admin) && (
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const action = admin.is_active ? 'غیرفعال' : 'فعال';
-                              if (window.confirm(`آیا از ${action} کردن "${admin.first_name} ${admin.last_name}" مطمئن هستید؟`)) {
-                                setActionLoading('toggle-active');
-                                toggleActiveMutation.mutate({ 
-                                  adminId: admin.id, 
-                                  active: !admin.is_active 
-                                });
-                              }
-                            }}
-                            disabled={actionLoading === 'toggle-active'}
-                            className={`inline-flex items-center px-3 py-1 rounded-md text-sm transition-colors ${
-                              isDarkMode
-                                ? 'bg-orange-900 text-orange-300 hover:bg-orange-800'
-                                : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
-                            } disabled:opacity-50`}
-                          >
-                            {admin.is_active ? <UserX className="w-3 h-3 ml-1" /> : <UserCheck className="w-3 h-3 ml-1" />}
-                            {admin.is_active ? 'غیرفعال' : 'فعال'}
-                          </button>
-                        )}
-                        
-                        {/* دکمه تأیید ادمین - برای سطح 1 و 2 */}
-                        {admin.needs_approval && canApproveAdmin(admin) && (
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (window.confirm(`آیا از تأیید "${admin.first_name} ${admin.last_name}" مطمئن هستید؟`)) {
-                                approveAdminMutation.mutate(admin.id);
-                              }
-                            }}
-                            className={`inline-flex items-center px-3 py-1 rounded-md text-sm transition-colors ${
-                              isDarkMode
-                                ? 'bg-green-900 text-green-300 hover:bg-green-800'
-                                : 'bg-green-100 text-green-700 hover:bg-green-200'
-                            }`}
-                          >
-                            <CheckCircle className="w-3 h-3 ml-1" />
-                            تأیید
-                          </button>
-                        )}
-                        
-                        {/* دکمه تعیین دسترسی‌ها - برای مدیر ارشد و سطح 1 */}
-                        {canManagePermissions(admin) && (
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenPermissionModal(admin);
-                            }}
-                            className={`inline-flex items-center px-3 py-1 rounded-md text-sm transition-colors ${
-                              isDarkMode
-                                ? 'bg-purple-900 text-purple-300 hover:bg-purple-800'
-                                : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                            }`}
-                          >
-                            <Settings className="w-3 h-3 ml-1" />
-                            دسترسی‌ها
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {filteredAdmins.length === 0 && (
-            <div className="text-center py-12">
-              <Users className={`mx-auto h-12 w-12 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
-              <h3 className={`mt-2 text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                ادمینی یافت نشد
-              </h3>
-              <p className={`mt-1 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                {admins.length === 0 
-                  ? 'هنوز هیچ ادمینی در سیستم ثبت نشده است.' 
-                  : 'هیچ ادمینی با فیلترهای انتخاب شده مطابقت ندارد.'
-                }
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Modal ایجاد ادمین جدید */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className={`rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto transition-colors ${
-            isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-          }`}>
-            <div className={`p-6 border-b ${
-              isDarkMode ? 'border-gray-700' : 'border-gray-200'
-            }`}>
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">ایجاد ادمین جدید</h3>
-                <button 
-                  onClick={() => setShowCreateModal(false)}
-                  className={isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}
-                >
-                  <XCircle className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-6 space-y-4">
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>نام</label>
-                <input
-                  type="text"
-                  value={newAdmin.first_name}
-                  onChange={(e) => setNewAdmin({...newAdmin, first_name: e.target.value})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>نام خانوادگی</label>
-                <input
-                  type="text"
-                  value={newAdmin.last_name}
-                  onChange={(e) => setNewAdmin({...newAdmin, last_name: e.target.value})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>نام کاربری</label>
-                <input
-                  type="text"
-                  value={newAdmin.username}
-                  onChange={(e) => setNewAdmin({...newAdmin, username: e.target.value})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>ایمیل</label>
-                <input
-                  type="email"
-                  value={newAdmin.email}
-                  onChange={(e) => setNewAdmin({...newAdmin, email: e.target.value})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>شماره تماس</label>
-                <input
-                  type="tel"
-                  value={newAdmin.phone}
-                  onChange={(e) => setNewAdmin({...newAdmin, phone: e.target.value})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>کد ملی</label>
-                <input
-                  type="text"
-                  value={newAdmin.national_id}
-                  onChange={(e) => setNewAdmin({...newAdmin, national_id: e.target.value})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>رمز عبور</label>
-                <input
-                  type="password"
-                  value={newAdmin.password}
-                  onChange={(e) => setNewAdmin({...newAdmin, password: e.target.value})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>سطح دسترسی</label>
-                <select
-                  value={newAdmin.access_grade}
-                  onChange={(e) => setNewAdmin({...newAdmin, access_grade: e.target.value as any})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                >
-                  <option value="grade3">سطح ۳</option>
-                  <option value="grade2">سطح ۲</option>
-                  <option value="grade1">سطح ۱</option>
-                </select>
-              </div>
-              
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className={`flex-1 px-4 py-2 border rounded-lg transition-colors ${
-                    isDarkMode 
-                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  انصراف
-                </button>
-                <button
-                  onClick={handleCreateAdmin}
-                  disabled={createAdminMutation.isPending}
-                  className={`flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors`}
-                >
-                  {createAdminMutation.isPending ? 'در حال ایجاد...' : 'ایجاد ادمین'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal ویرایش ادمین */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className={`rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto transition-colors ${
-            isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-          }`}>
-            <div className={`p-6 border-b ${
-              isDarkMode ? 'border-gray-700' : 'border-gray-200'
-            }`}>
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">ویرایش ادمین</h3>
-                <button 
-                  onClick={() => setShowEditModal(false)}
-                  className={isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}
-                >
-                  <XCircle className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-6 space-y-4">
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>نام</label>
-                <input
-                  type="text"
-                  value={editAdmin.first_name}
-                  onChange={(e) => setEditAdmin({...editAdmin, first_name: e.target.value})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>نام خانوادگی</label>
-                <input
-                  type="text"
-                  value={editAdmin.last_name}
-                  onChange={(e) => setEditAdmin({...editAdmin, last_name: e.target.value})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>نام کاربری</label>
-                <input
-                  type="text"
-                  value={editAdmin.username}
-                  onChange={(e) => setEditAdmin({...editAdmin, username: e.target.value})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>ایمیل</label>
-                <input
-                  type="email"
-                  value={editAdmin.email}
-                  onChange={(e) => setEditAdmin({...editAdmin, email: e.target.value})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>شماره تماس</label>
-                <input
-                  type="tel"
-                  value={editAdmin.phone}
-                  onChange={(e) => setEditAdmin({...editAdmin, phone: e.target.value})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>کد ملی</label>
-                <input
-                  type="text"
-                  value={editAdmin.national_id}
-                  onChange={(e) => setEditAdmin({...editAdmin, national_id: e.target.value})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>سطح دسترسی</label>
-                <select
-                  value={editAdmin.access_grade}
-                  onChange={(e) => setEditAdmin({...editAdmin, access_grade: e.target.value as any})}
-                  className={`w-full p-2 border rounded-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white' 
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
-                >
-                  <option value="grade3">سطح ۳</option>
-                  <option value="grade2">سطح ۲</option>
-                  <option value="grade1">سطح ۱</option>
-                </select>
-              </div>
-              
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowEditModal(false)}
-                  className={`flex-1 px-4 py-2 border rounded-lg transition-colors ${
-                    isDarkMode 
-                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  انصراف
-                </button>
-                <button
-                  onClick={handleUpdateAdmin}
-                  disabled={editAdminMutation.isPending}
-                  className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors`}
-                >
-                  {editAdminMutation.isPending ? 'در حال ویرایش...' : 'ذخیره تغییرات'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal مدیریت دسترسی‌ها */}
-      {showPermissionModal && selectedAdminForPermission && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className={`rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto transition-colors ${
-            isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-          }`}>
-            <div className={`p-6 border-b ${
-              isDarkMode ? 'border-gray-700' : 'border-gray-200'
-            }`}>
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-lg font-semibold">مدیریت دسترسی‌ها</h3>
-                  <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                    {selectedAdminForPermission.first_name} {selectedAdminForPermission.last_name}
-                  </p>
-                </div>
-                <button 
-                  onClick={() => setShowPermissionModal(false)}
-                  className={isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}
-                >
-                  <XCircle className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {PERMISSIONS.map(permission => (
-                  <div 
-                    key={permission.id}
-                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                      adminPermissions.includes(permission.id)
-                        ? isDarkMode 
-                          ? 'bg-green-900 border-green-700' 
-                          : 'bg-green-50 border-green-200'
-                        : isDarkMode 
-                          ? 'bg-gray-700 border-gray-600 hover:bg-gray-600' 
-                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                    }`}
-                    onClick={() => handlePermissionToggle(permission.id)}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-sm">{permission.name}</span>
-                      {adminPermissions.includes(permission.id) ? (
-                        <CheckSquare className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <Square className="w-4 h-4 text-gray-400" />
-                      )}
-                    </div>
-                    <p className={`text-xs ${
-                      isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                    }`}>
-                      {permission.description}
-                    </p>
-                    <span className={`inline-block mt-2 px-2 py-1 text-xs rounded ${
-                      isDarkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-700'
-                    }`}>
-                      {permission.category}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="flex gap-3 pt-6 mt-6 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={() => setShowPermissionModal(false)}
-                  className={`flex-1 px-4 py-2 border rounded-lg transition-colors ${
-                    isDarkMode 
-                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  انصراف
-                </button>
-                <button
-                  onClick={handleSavePermissions}
-                  disabled={updateAdminPermissionsMutation.isPending}
-                  className={`flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors`}
-                >
-                  {updateAdminPermissionsMutation.isPending ? 'در حال ذخیره...' : 'ذخیره دسترسی‌ها'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Admin Details Modal */}
-      {showAdminModal && selectedAdmin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className={`rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto transition-colors ${
-            isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-          }`}>
-            <div className={`p-6 border-b ${
-              isDarkMode ? 'border-gray-700' : 'border-gray-200'
-            }`}>
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">مشخصات ادمین</h3>
-                <button 
-                  onClick={() => setShowAdminModal(false)}
-                  className={isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'}
-                >
-                  <XCircle className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-6 space-y-6">
-              {/* اطلاعات پایه */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>نام و نام خانوادگی</label>
-                  <div className={`p-2 rounded border ${
-                    isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
-                  }`}>
-                    {selectedAdmin.first_name} {selectedAdmin.last_name}
-                  </div>
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>نام کاربری</label>
-                  <div className={`p-2 rounded border flex items-center ${
-                    isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
-                  }`}>
-                    <IdCard className="w-4 h-4 ml-2 text-gray-400" />
-                    {selectedAdmin.username}
-                  </div>
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>ایمیل</label>
-                  <div className={`p-2 rounded border flex items-center ${
-                    isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
-                  }`}>
-                    <Mail className="w-4 h-4 ml-2 text-gray-400" />
-                    {selectedAdmin.email}
-                  </div>
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>شماره تماس</label>
-                  <div className={`p-2 rounded border flex items-center ${
-                    isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
-                  }`}>
-                    <Phone className="w-4 h-4 ml-2 text-gray-400" />
-                    {selectedAdmin.phone}
-                  </div>
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>کد ملی</label>
-                  <div className={`p-2 rounded border ${
-                    isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
-                  }`}>
-                    {selectedAdmin.national_id}
-                  </div>
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>سطح دسترسی</label>
-                  <div className={`p-2 rounded border ${
-                    isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
-                  }`}>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getGradeColor(selectedAdmin.access_grade)}`}>
-                      {getGradeIcon(selectedAdmin.access_grade)}
-                      <span className="mr-1">{getGradeText(selectedAdmin.access_grade)}</span>
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>تاریخ ایجاد</label>
-                  <div className={`p-2 rounded border flex items-center ${
-                    isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
-                  }`}>
-                    <Calendar className="w-4 h-4 ml-2 text-gray-400" />
-                    {new Date(selectedAdmin.created_at).toLocaleDateString('fa-IR')}
-                  </div>
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>وضعیت</label>
-                  <div className="p-2">
-                    {selectedAdmin.needs_approval ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
-                        <UserCheck className="w-3 h-3 ml-1" />
-                        در انتظار تأیید
-                      </span>
-                    ) : selectedAdmin.is_active ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
-                        <CheckCircle className="w-3 h-3 ml-1" />
-                        فعال
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
-                        <UserX className="w-3 h-3 ml-1" />
-                        غیرفعال
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* اقدامات */}
-              <div className={`border-t pt-6 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                <h4 className="font-medium mb-4">مدیریت ادمین</h4>
-                <div className="flex flex-wrap gap-3">
-                  {/* تأیید ادمین - برای سطح 1 و 2 */}
-                  {selectedAdmin.needs_approval && canApproveAdmin(selectedAdmin) && (
-                    <button
-                      onClick={() => handleApproveAdmin(selectedAdmin.id)}
-                      className="flex items-center px-4 py-2 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
-                    >
-                      <CheckCircle className="w-4 h-4 ml-2" />
-                      تأیید ادمین
-                    </button>
-                  )}
-
-                  {/* ویرایش ادمین - برای سطح 1 و 2 */}
-                  {canEditAdmin(selectedAdmin) && (
-                    <button
-                      onClick={() => handleEditAdmin(selectedAdmin)}
-                      className="flex items-center px-4 py-2 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
-                    >
-                      <Edit className="w-4 h-4 ml-2" />
-                      ویرایش اطلاعات
-                    </button>
-                  )}
-
-                  {/* ریست رمز عبور - برای سطح 1 و 2 */}
-                  {canResetPassword(selectedAdmin) && (
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`آیا از ریست رمز عبور "${selectedAdmin.first_name} ${selectedAdmin.last_name}" مطمئن هستید؟`)) {
-                          setActionLoading('reset-password');
-                          resetPasswordMutation.mutate(selectedAdmin.id);
-                        }
-                      }}
-                      disabled={actionLoading === 'reset-password'}
-                      className="flex items-center px-4 py-2 bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-800 disabled:opacity-50 transition-colors"
-                    >
-                      <Key className="w-4 h-4 ml-2" />
-                      {actionLoading === 'reset-password' ? 'در حال ریست...' : 'ریست رمز عبور'}
-                    </button>
-                  )}
-
-                  {/* فعال/غیرفعال کردن - فقط برای سطح 1 */}
-                  {canToggleActive(selectedAdmin) && (
-                    <button
-                      onClick={() => {
-                        const action = selectedAdmin.is_active ? 'غیرفعال' : 'فعال';
-                        if (window.confirm(`آیا از ${action} کردن "${selectedAdmin.first_name} ${selectedAdmin.last_name}" مطمئن هستید؟`)) {
-                          setActionLoading('toggle-active');
-                          toggleActiveMutation.mutate({ 
-                            adminId: selectedAdmin.id, 
-                            active: !selectedAdmin.is_active 
-                          });
-                        }
-                      }}
-                      disabled={actionLoading === 'toggle-active'}
-                      className="flex items-center px-4 py-2 bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 rounded-lg hover:bg-orange-200 dark:hover:bg-orange-800 disabled:opacity-50 transition-colors"
-                    >
-                      {selectedAdmin.is_active ? <UserX className="w-4 h-4 ml-2" /> : <UserCheck className="w-4 h-4 ml-2" />}
-                      {actionLoading === 'toggle-active' ? 'در حال تغییر...' : selectedAdmin.is_active ? 'غیرفعال کردن' : 'فعال کردن'}
-                    </button>
-                  )}
-
-                  {/* تغییر سطح دسترسی */}
-                  {selectedAdmin.access_grade === 'chief' && canToggleActive(selectedAdmin) && (
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`آیا از تغییر سطح دسترسی "${selectedAdmin.first_name} ${selectedAdmin.last_name}" از مدیر ارشد به سطح ۱ مطمئن هستید؟`)) {
-                          setActionLoading('change-grade');
-                          changeGradeMutation.mutate({ 
-                            adminId: selectedAdmin.id, 
-                            newGrade: 'grade1' 
-                          });
-                        }
-                      }}
-                      disabled={actionLoading === 'change-grade'}
-                      className="flex items-center px-4 py-2 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-800 disabled:opacity-50 transition-colors"
-                    >
-                      <Shield className="w-4 h-4 ml-2" />
-                      {actionLoading === 'change-grade' ? 'در حال تغییر...' : 'تغییر به سطح ۱'}
-                    </button>
-                  )}
-
-                  {/* مدیریت دسترسی‌ها - برای مدیر ارشد و سطح 1 */}
-                  {canManagePermissions(selectedAdmin) && (
-                    <button
-                      onClick={() => handleOpenPermissionModal(selectedAdmin)}
-                      className="flex items-center px-4 py-2 bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 rounded-lg hover:bg-indigo-200 dark:hover:bg-indigo-800 transition-colors"
-                    >
-                      <Settings className="w-4 h-4 ml-2" />
-                      مدیریت دسترسی‌ها
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// کامپوننت کارت آمار مشابه داشبورد
-function StatCard({ title, value, icon, subtitle, color, isDarkMode }: {
-  title: string
-  value: string | number
-  icon: string
-  subtitle: string
-  color: string
-  isDarkMode: boolean
-}) {
-  const colorClasses = {
-    blue: 'hover:border-blue-500',
-    green: 'hover:border-green-500',
-    purple: 'hover:border-purple-500',
-    yellow: 'hover:border-yellow-500'
-  }
-
-  const textColors = {
-    blue: 'text-blue-500',
-    green: 'text-green-500',
-    purple: 'text-purple-500', 
-    yellow: 'text-yellow-500'
-  }
-
-  return (
-    <div className={`p-4 sm:p-6 rounded-lg border transition-colors ${
-      isDarkMode 
-        ? `bg-gray-800 border-gray-700 ${colorClasses[color as keyof typeof colorClasses]}` 
-        : `bg-white border-gray-200 ${colorClasses[color as keyof typeof colorClasses]} shadow-sm`
-    }`}>
-      <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+      {/* هدر */}
+      <div className="flex justify-between items-center mb-8">
         <div>
-          <h3 className={`text-sm mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{title}</h3>
-          <p className={`text-2xl sm:text-3xl font-bold ${textColors[color as keyof typeof textColors]}`}>
-            {typeof value === 'number' ? new Intl.NumberFormat('fa-IR').format(value) : value}
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">مدیریت ادمین‌ها</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            {admins.length} ادمین در سیستم
           </p>
         </div>
-        <div className="text-2xl">{icon}</div>
+        <div className="flex gap-3">
+          {/* 🆕 دکمه ایجاد ادمین جدید */}
+          {isChiefAdmin && (
+            <button
+              onClick={() => startActionWithAuth('create')}
+              className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors font-medium text-white flex items-center gap-2"
+            >
+              <span>+</span>
+              ایجاد ادمین جدید
+            </button>
+          )}
+          <button
+            onClick={exportToExcel}
+            className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors font-medium text-white flex items-center gap-2"
+          >
+            <span>📊</span>
+            خروجی اکسل
+          </button>
+          <Link
+            href="/admin/dashboard"
+            className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors text-gray-700 dark:text-gray-300"
+          >
+            بازگشت به داشبورد
+          </Link>
+        </div>
       </div>
-      <div className={`mt-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{subtitle}</div>
+
+      {/* نمایش خطا */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-200 p-4 rounded-lg mb-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <strong>خطا:</strong> {error}
+            </div>
+            <button
+              onClick={() => fetchAdmins()}
+              className="bg-red-200 dark:bg-red-700 hover:bg-red-300 dark:hover:bg-red-600 px-4 py-2 rounded transition-colors"
+            >
+              تلاش مجدد
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* فیلترها و جستجو */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-4">
+          {/* فیلتر نقش */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">نقش</label>
+            <select
+              value={filters.role}
+              onChange={(e) => {
+                setFilters(prev => ({...prev, role: e.target.value}))
+                setTimeout(handleFilterChange, 100)
+              }}
+              className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white"
+            >
+              <option value="all">همه نقش‌ها</option>
+              <option value="chief">مدیر ارشد</option>
+              <option value="super_admin">سوپر ادمین</option>
+              <option value="admin">ادمین</option>
+            </select>
+          </div>
+
+          {/* فیلتر وضعیت */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">وضعیت</label>
+            <select
+              value={filters.status}
+              onChange={(e) => {
+                setFilters(prev => ({...prev, status: e.target.value}))
+                setTimeout(handleFilterChange, 100)
+              }}
+              className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white"
+            >
+              <option value="all">همه وضعیت‌ها</option>
+              <option value="active">فعال</option>
+              <option value="inactive">غیرفعال</option>
+            </select>
+          </div>
+
+          {/* فیلتر تأیید */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">تأیید</label>
+            <select
+              value={filters.approval}
+              onChange={(e) => {
+                setFilters(prev => ({...prev, approval: e.target.value}))
+                setTimeout(handleFilterChange, 100)
+              }}
+              className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white"
+            >
+              <option value="all">همه</option>
+              <option value="approved">تأیید شده</option>
+              <option value="pending">در انتظار</option>
+            </select>
+          </div>
+
+          {/* فیلتر جنسیت */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">جنسیت</label>
+            <select
+              value={filters.gender}
+              onChange={(e) => {
+                setFilters(prev => ({...prev, gender: e.target.value}))
+                setTimeout(handleFilterChange, 100)
+              }}
+              className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white"
+            >
+              <option value="all">همه</option>
+              <option value="MALE">مرد</option>
+              <option value="FEMALE">زن</option>
+            </select>
+          </div>
+
+          {/* ✅ فیلتر جدید: سطح دسترسی */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">سطح دسترسی</label>
+            <select
+              value={filters.access_level}
+              onChange={(e) => {
+                setFilters(prev => ({...prev, access_level: e.target.value}))
+                setTimeout(handleFilterChange, 100)
+              }}
+              className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white"
+            >
+              <option value="all">همه سطوح</option>
+              <option value="full">دسترسی کامل</option>
+              <option value="advanced">پیشرفته</option>
+              <option value="medium">متوسط</option>
+              <option value="basic">پایه</option>
+            </select>
+          </div>
+
+          {/* فیلد جستجو */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">جستجو در</label>
+            <select
+              value={searchField}
+              onChange={(e) => setSearchField(e.target.value)}
+              className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white mb-2"
+            >
+              <option value="all">همه فیلدها</option>
+              <option value="full_name">نام کامل</option>
+              <option value="username">نام کاربری</option>
+              <option value="email">ایمیل</option>
+              <option value="phone">تلفن</option>
+              <option value="national_id">کد ملی</option>
+              <option value="bank_account">شماره حساب</option>
+              <option value="organizational_position">سمت سازمانی</option>
+            </select>
+          </div>
+        </div>
+
+        {/* فرم جستجو */}
+        <form onSubmit={handleSearch} className="flex gap-4">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder={`جستجو در ${searchField === 'all' ? 'همه فیلدها' : searchField}...`}
+            className="flex-1 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white"
+          />
+          <button
+            type="submit"
+            className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg transition-colors font-medium text-white"
+          >
+            جستجو
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchTerm('')
+              setFilters({
+                role: 'all',
+                status: 'all',
+                approval: 'all',
+                gender: 'all',
+                access_level: 'all'
+              })
+              fetchAdmins()
+            }}
+            className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 px-6 py-3 rounded-lg transition-colors text-gray-700 dark:text-gray-300"
+          >
+            بازنشانی
+          </button>
+        </form>
+      </div>
+
+      {/* جدول ادمین‌ها */}
+      <AdminTable
+        admins={admins}
+        loading={loading}
+        error={error}
+        currentAdmin={currentAdmin}
+        onShowDetails={showAdminDetails}
+        onShowActivity={showActivityHistory}
+        onEditAdmin={handleEditAdmin}
+        onRetry={() => fetchAdmins(searchTerm, filters)}
+        getRoleBadge={getRoleBadge}
+        getStatusBadge={getStatusBadge}
+        getApprovalBadge={getApprovalBadge}
+        getGenderText={getGenderText}
+        getAccessLevelBadge={getAccessLevelBadge}
+        formatDate={formatDate}
+        canModifyAdmin={canModifyAdmin}
+      />
+
+      {/* 🔐 مودال تأیید رمز عبور */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
+              تأیید هویت
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              لطفاً رمز عبور خود را برای ادامه عملیات وارد کنید:
+            </p>
+            <form onSubmit={(e) => { e.preventDefault(); executeAction(); }}>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={handlePasswordKeyPress}
+                placeholder="رمز عبور شما"
+                className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white mb-4"
+                autoFocus
+              />
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition-colors"
+                >
+                  تأیید و ادامه
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPasswordModal(false)
+                    setPassword('')
+                    setCurrentAction(null)
+                  }}
+                  className="flex-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg transition-colors"
+                >
+                  انصراف
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ✏️ مودال ویرایش ادمین */}
+      <AdminEditModal
+        admin={editingAdmin}
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false)
+          setEditingAdmin(null)
+        }}
+        onSave={handleUpdateAdmin}
+        currentAdmin={currentAdmin}
+      />
+
+      {/* 👁️ مودال مشاهده مشخصات کامل */}
+      <AdminDetailModal
+        admin={selectedAdmin}
+        isOpen={showAdminDetailModal}
+        onClose={() => {
+          setShowAdminDetailModal(false)
+          setSelectedAdmin(null)
+        }}
+        currentAdmin={currentAdmin}
+        onApprove={handleApproveAdmin}
+      />
+
     </div>
   )
 }
-
-export default AdminManagementPage;

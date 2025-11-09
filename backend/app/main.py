@@ -5,167 +5,139 @@ from contextlib import asynccontextmanager
 import os
 import sys
 
-# ✅ اضافه کردن مسیر پروژه به sys.path
+# 🔧 اضافه کردن مسیر پروژه به sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.dirname(current_dir)
 sys.path.insert(0, backend_dir)
 
-print(f"🔧 Python path: {sys.path}")
-
-# ✅ ایمپورت SecurityMiddleware از پوشه security
+# ✅ ایمپورت‌های امنیتی و دیتابیس
 from app.security.middleware import SecurityMiddleware
 
-# استفاده از lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    print("✅ سرور پارسا گلد در حال راه‌اندازی...")
-    
-    # ایجاد جداول دیتابیس
+    print("✅ راه‌اندازی سرور پارسا گلد...")
+
     try:
         from app.database import engine, Base
         Base.metadata.create_all(bind=engine)
-        print("✅ جداول دیتابیس ایجاد شدند!")
+        print("✅ جداول دیتابیس ساخته شدند")
     except Exception as e:
-        print(f"⚠️ خطا در ایجاد دیتابیس: {e}")
-    
-    # ✅ ایجاد داده‌های اولیه - اینجا صدا زده میشه
+        print(f"⚠️ خطا در ساخت دیتابیس: {e}")
+
     try:
         from app.seed_data import seed_initial_data
         seed_initial_data()
-        print("✅ داده‌های اولیه ایجاد شدند!")
+        print("✅ داده‌های اولیه بارگذاری شدند")
     except Exception as e:
-        print(f"⚠️ خطا در ایجاد داده‌های اولیه: {e}")
-    
+        print(f"⚠️ خطا در بارگذاری داده‌های اولیه: {e}")
+
     yield
-    
-    # Shutdown
-    print("🔴 سرور در حال خاموش شدن...")
+    print("🔴 خاموش شدن سرور...")
 
 app = FastAPI(
     title="ParsaGold API",
     description="سیستم معاملات طلا، نقره و نفت پارساگلد",
     version="2.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    debug=True
 )
 
-# ✅ اضافه کردن middleware امنیتی از فایل جداگانه
+# ✅ Middleware امنیتی
 app.add_middleware(SecurityMiddleware)
 
-# CORS - کامل‌ترین تنظیمات
+# ✅ تنظیمات کامل CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # اجازه دادن به تمام originها
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
-    allow_headers=[
-        "*",
-        "Authorization",
-        "Content-Type",
-        "Accept",
-        "Origin",
-        "X-Requested-With",
-        "Access-Control-Allow-Origin",
-        "Access-Control-Allow-Headers",
-        "Access-Control-Allow-Methods",
-        "Access-Control-Allow-Credentials",
-        "Access-Control-Request-Headers",
-        "Access-Control-Request-Method"
-    ],
-    expose_headers=[
-        "*",
-        "Authorization",
-        "Content-Range",
-        "X-Total-Count"
-    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
     max_age=3600,
 )
 
+# ✅ مسیرهای تست و سلامت
 @app.get("/")
 async def root():
-    return {
-        "message": "خوش آمدید به پارسا گلد", 
-        "status": "active",
-        "version": "2.0.0"
-    }
+    return {"message": "خوش آمدید به پارسا گلد", "status": "active", "version": "2.0.0"}
 
 @app.get("/api/test")
 async def test_api():
-    return {"message": "API پارسا گلد کار می‌کند!", "status": "success"}
+    return {"message": "API پارسا گلد فعال است", "status": "success"}
 
 @app.get("/api/health")
 async def health_check():
-    return {
-        "status": "healthy",
-        "service": "ParsaGold",
-        "timestamp": "2024"
-    }
+    return {"status": "healthy", "service": "ParsaGold"}
 
-# هندلر برای OPTIONS requests (CORS preflight)
 @app.options("/{rest_of_path:path}")
 async def preflight_handler(rest_of_path: str):
-    return {
-        "message": "CORS preflight successful",
-        "allowed_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
-    }
+    return {"message": "CORS preflight successful"}
 
-# ایمپورت و include کردن روت‌ها - با try/except برای هر کدام
+# ✅ ثبت routeها
 try:
     from app.routes import auth
     app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-    print("✅ روت auth بارگذاری شد")
 except Exception as e:
-    print(f"⚠️ خطا در بارگذاری روت auth: {e}")
+    print(f"⚠️ خطا در بارگذاری auth: {e}")
 
 try:
     from app.routes import admin
     app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
-    print("✅ روت admin بارگذاری شد")
 except Exception as e:
-    print(f"⚠️ خطا در بارگذاری روت admin: {e}")
-
-try:
-    from app.routes import users
-    app.include_router(users.router, prefix="/api/admin", tags=["Users"])
-    print("✅ روت users بارگذاری شد")
-except Exception as e:
-    print(f"⚠️ خطا در بارگذاری روت users: {e}")
+    print(f"⚠️ خطا در بارگذاری admin: {e}")
 
 try:
     from app.routes import admin_management
-    app.include_router(admin_management.router, prefix="/api", tags=["Admin Management"])
-    print("✅ روت admin_management بارگذاری شد")
+    app.include_router(admin_management.router, prefix="/api/management", tags=["Admin Management"])
 except Exception as e:
-    print(f"⚠️ خطا در بارگذاری روت admin_management: {e}")
+    print(f"⚠️ خطا در بارگذاری admin_management: {e}")
 
-print("📋 روت‌های فعال:")
+try:
+    from app.routes import prices
+    app.include_router(prices.router, prefix="/api", tags=["Market Prices"])
+except Exception as e:
+    print(f"⚠️ خطا در بارگذاری prices: {e}")
+
+try:
+    from app.routes import trades
+    app.include_router(trades.router, prefix="/api", tags=["Trades"])
+except Exception as e:
+    print(f"⚠️ خطا در بارگذاری trades: {e}")
+
+# ✅ نمایش مسیرهای فعال
+print("📋 مسیرهای فعال:")
 for route in app.routes:
-    if hasattr(route, 'path') and hasattr(route, 'methods'):
-        methods = ', '.join(route.methods) if route.methods else 'No methods'
+    if hasattr(route, 'path') and '/api/' in route.path:
+        methods = ', '.join(route.methods)
         print(f"  - {route.path} ({methods})")
 
-# هندلر برای خطاهای 404
+# ✅ هندلر خطاها
 @app.exception_handler(404)
-async def not_found_exception_handler(request, exc):
-    return {
-        "detail": f"مسیر {request.url} یافت نشد",
-        "available_routes": [
-            "/api/health",
-            "/api/auth/register",
-            "/api/auth/login", 
-            "/api/admin/login",
-            "/docs"
-        ]
-    }
+async def not_found_exception_handler(request: Request, exc):
+    return JSONResponse(
+        status_code=404,
+        content={
+            "detail": f"مسیر {request.url} یافت نشد",
+            "available_routes": [
+                "/api/health",
+                "/api/auth/login",
+                "/api/admin/login",
+                "/api/admin/users",
+                "/api/admin/admins",
+                "/api/management/admins",
+                "/docs"
+            ]
+        }
+    )
 
-# هندلر برای خطاهای 500
 @app.exception_handler(500)
-async def internal_server_error_handler(request, exc):
+async def internal_server_error_handler(request: Request, exc):
     return JSONResponse(
         status_code=500,
         content={"detail": "خطای داخلی سرور"}
     )
 
+# ✅ اجرای مستقیم
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
