@@ -1,123 +1,150 @@
-// frontend/src/app/admin/components/AdminSidebar.tsx
 'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useAuth } from '../../../contexts/AuthContext'
 import Image from 'next/image'
 
 interface AdminSidebarProps {
+  isDarkMode: boolean
   onClose?: () => void
-  isDarkMode?: boolean
 }
 
-const menuItems = [
-  { href: '/admin/dashboard', icon: '📊', label: 'داشبورد', badge: null },
-  { href: '/admin/users', icon: '👥', label: 'مدیریت کاربران', badge: null },
-  { href: '/admin/admins', icon: '🛡️', label: 'مدیریت ادمین‌ها', badge: null },
-  { href: '/admin/trades', icon: '💰', label: 'تراکنش‌ها', badge: null },
-  { href: '/admin/reports', icon: '📈', label: 'گزارشات مالی', badge: null },
-  { href: '/admin/support', icon: '🎫', label: 'پشتیبانی', badge: '12' },
-  { href: '/admin/messages', icon: '📨', label: 'سیستم پیام', badge: '7' },
-  { href: '/admin/monitoring', icon: '👁️', label: 'مانیتورینگ', badge: null },
-  { href: '/admin/settings', icon: '⚙️', label: 'تنظیمات', badge: null },
-  { href: '/admin/logs', icon: '📋', label: 'لاگ سیستم', badge: null },
-]
-
-export default function AdminSidebar({ onClose, isDarkMode = true }: AdminSidebarProps) {
+export default function AdminSidebar({ isDarkMode, onClose }: AdminSidebarProps) {
   const pathname = usePathname()
+  const { user } = useAuth()
+
+  const menuItems = [
+    {
+      name: 'داشبورد',
+      href: '/admin/dashboard',
+      icon: '📊',
+      roles: ['super_admin', 'admin', 'chief', 'support', 'viewer']
+    },
+    {
+      name: 'مانیتورینگ سیستم',
+      href: '/admin/system-monitoring',
+      icon: '📈',
+      roles: ['super_admin', 'admin', 'chief', 'support']
+    },
+    {
+      name: 'مدیریت کاربران سایت',
+      href: '/admin/user-management',
+      icon: '👥',
+      roles: ['super_admin', 'admin', 'chief', 'support']
+    },
+    {
+      name: 'مدیریت ادمین ها',
+      href: '/admin/admin-management',
+      icon: '🛡️',
+      roles: ['super_admin', 'chief']
+    },
+    {
+      name: 'مدیریت دسترسی ها',
+      href: '/admin/permissions',
+      icon: '🔐',
+      roles: ['super_admin', 'chief']
+    },
+    {
+      name: 'مدیریت پرسنل',
+      href: '/admin/staff-management',
+      icon: '👨‍💼',
+      roles: ['super_admin', 'chief', 'admin']
+    },
+    {
+      name: 'مدیریت مالی و حسابداری',
+      href: '/admin/financial-management',
+      icon: '💰',
+      roles: ['super_admin', 'chief', 'admin']
+    },
+    {
+      name: 'لاگ های سیستم',
+      href: '/admin/audit-logs',
+      icon: '📝',
+      roles: ['super_admin', 'chief', 'admin']
+    },
+  ]
+
+  const filteredMenuItems = menuItems.filter(item => 
+    user?.role && item.roles.includes(user.role)
+  )
 
   return (
-    <div className={`w-64 h-full flex flex-col  transition-colors duration-300 ${
+    <div className={`w-64 h-full flex flex-col transition-colors duration-300 border-l-0 ${
       isDarkMode 
-        ? 'bg-gray-800 ' 
-        : 'bg-stone-700  text-white' // ✅ تغییر به قهوه‌ای شکلاتی
+        ? 'bg-gray-800 text-white' 
+        : 'bg-white text-gray-900'
     }`}>
-      {/* هدر سایدبار */}
-      <div className={`p-4.5  transition-colors duration-300 ${
-        isDarkMode 
-          ? '' 
-          : '' // ✅ تغییر به قهوه‌ای تیره‌تر
+      {/* هدر سایدبار - ارتفاع برابر با هدر و فقط لوگو */}
+      <div className={`border-b h-28 flex items-center justify-center ${
+        isDarkMode ? 'border-gray-700' : 'border-gray-200'
       }`}>
-        <div className="flex flex-col items-center justify-center text-center gap-2">
-          <div className="w-25 h-25 relative">
-            <Image
-              src="/logo/Parsagold-main-logo.png"
-              alt="پارسا گلد"
-              width={80}
-              height={80}
-              className="object-contain"
-            />
-          </div>
-         
+        {/* لوگو پارسا گلد - بزرگ و وسط */}
+        <div className="w-17 h-17 rounded-lg flex items-center justify-center ">
+          <Image 
+            src="/logo/Parsagold-main-logo.png"
+            alt="ParsaGold Logo"
+            width={80}
+            height={80}
+            className="object-contain"
+          />
         </div>
       </div>
 
-      {/* منو */}
-      <nav className="flex-1 p-4 space-y-1">
-        {menuItems.map((item) => {
-          const isActive = pathname === item.href
-          
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onClose}
-              className={`flex items-center justify-between gap-3 p-3 rounded-lg transition-all duration-200 group ${
-                isActive
-                  ? isDarkMode
-                    ? 'bg-yellow-500/20 text-yellow-400 border-r-2 border-yellow-500 shadow-sm'
-                    : 'bg-amber-300 text-black border-r-2 border-amber-400 shadow-sm' // ✅ تغییر به قهوه‌ای تیره‌تر
-                  : isDarkMode
-                    ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                    : 'text-amber-100 hover:bg-amber-200 hover:text-black' // ✅ تغییر به قهوه‌ای تیره‌تر
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className={`text-lg group-hover:scale-110 transition-transform ${
-                  isActive && isDarkMode ? 'text-yellow-400' : 
-                  isActive && !isDarkMode ? 'text-white' : 'text-amber-100' // ✅ آیکون‌ها روشن‌تر
-                }`}>
-                  {item.icon}
-                </span>
-                <span className="font-medium text-sm">{item.label}</span>
-              </div>
-              
-              {item.badge && (
-                <span className={`text-xs px-2 py-1 rounded-full min-w-5 text-center ${
-                  isDarkMode 
-                    ? 'bg-red-600 text-white' 
-                    : 'bg-red-400 text-white' // ✅ badge روشن‌تر
-                }`}>
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          )
-        })}
+      {/* منوی ناوبری */}
+      <nav className="flex-1 p-4">
+        <ul className="space-y-2">
+          {filteredMenuItems.map((item) => {
+            const isActive = pathname === item.href
+            
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  onClick={onClose}
+                  className={`flex items-center space-x-3 space-x-reverse p-3 rounded-lg transition-all duration-200 ${
+                    isActive
+                      ? isDarkMode
+                        ? 'bg-blue-600 text-white shadow-lg'
+                        : 'bg-blue-100 text-blue-800 shadow-md'
+                      : isDarkMode
+                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <span className="text-xl">{item.icon}</span>
+                  <span className="font-medium">{item.name}</span>
+                  
+                  {isActive && (
+                    <div className={`w-2 h-2 rounded-full ${
+                      isDarkMode ? 'bg-yellow-400' : 'bg-blue-600'
+                    }`}></div>
+                  )}
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
       </nav>
 
-      {/* فوتر سایدبار */}
-      <div className={`p-4 border-t transition-colors duration-300 ${
-        isDarkMode 
-          ? 'border-gray-700' 
-          : 'border-amber-600' // ✅ تغییر به قهوه‌ای تیره‌تر
+      {/* پاورقی سایدبار */}
+      <div className={`p-4 border-t ${
+        isDarkMode ? 'border-gray-700' : 'border-gray-200'
       }`}>
-        <div className="flex items-center justify-between p-3">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full animate-pulse ${
-              isDarkMode ? 'bg-green-500' : 'bg-green-300' // ✅ سبز روشن‌تر
-            }`}></div>
-            <span className={`text-xs ${
-              isDarkMode ? 'text-gray-400' : 'text-amber-100' // ✅ متن روشن‌تر
-            }`}>
-              سیستم فعال
-            </span>
-          </div>
-          <div className={`text-xs ${
-            isDarkMode ? 'text-gray-500' : 'text-amber-200' // ✅ متن روشن‌تر
+        <div className={`p-3 rounded-lg ${
+          isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+        }`}>
+          <p className="text-sm font-medium">
+            {user?.first_name} {user?.last_name}
+          </p>
+          <p className={`text-xs ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-600'
           }`}>
-            v2.0.0
-          </div>
+            {user?.role === 'super_admin' ? 'سوپر ادمین' : 
+             user?.role === 'chief' ? 'مدیر ارشد' :
+             user?.role === 'admin' ? 'ادمین' :
+             user?.role === 'support' ? 'پشتیبان' : 'بیننده'}
+          </p>
         </div>
       </div>
     </div>

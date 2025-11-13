@@ -444,7 +444,7 @@ export default function Home() {
 
             {/* دکمه‌های ورود و عضویت */}
             <button 
-              onClick={() => handleNavigation('/login')}
+              onClick={() => handleNavigation('/auth/login')}
               className={`px-6 py-3 border font-semibold rounded-lg shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 text-base ${
                 isDarkMode 
                   ? 'border-yellow-500 text-yellow-500 hover:bg-gradient-to-r hover:from-yellow-400 hover:to-yellow-500 hover:text-black' 
@@ -454,7 +454,7 @@ export default function Home() {
               ورود
             </button>
             <button 
-              onClick={() => handleNavigation('/register')}
+              onClick={() => handleNavigation('/auth/register')}
               className={`px-6 py-3 border font-semibold rounded-lg shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 text-base ${
                 isDarkMode 
                   ? 'border-yellow-500 text-yellow-500 hover:bg-gradient-to-r hover:from-yellow-400 hover:to-yellow-500 hover:text-black' 
@@ -546,13 +546,13 @@ export default function Home() {
               </p>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center md:justify-start transform transition-all duration-700 delay-500">
                 <button 
-                  onClick={() => handleNavigation('/trading')}
+                  onClick={() => handleNavigation('/user/dashboard')}
                   className="px-6 py-2 sm:px-8 sm:py-3 bg-yellow-500 text-yellow-900 font-bold rounded-xl hover:bg-yellow-400 transition-all duration-300 hover:scale-105 text-sm sm:text-base shadow-lg"
                 >
                   شروع معاملات
                 </button>
                 <button 
-                  onClick={() => handleNavigation('/register')}
+                  onClick={() => handleNavigation('/auth/register')}
                   className="px-6 py-2 sm:px-8 sm:py-3 border-2 border-yellow-500 text-yellow-500 font-bold rounded-xl hover:bg-yellow-500 hover:text-black transition-all duration-300 hover:scale-105 text-sm sm:text-base shadow-lg"
                 >
                   عضویت رایگان

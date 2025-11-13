@@ -1,90 +1,128 @@
-// فایل: src/contexts/AuthContext.tsx
-'use client';
+'use client'
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface User {
-  id: number;
-  email: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
+  id: number
+  username: string
+  email: string
+  role: string
+  first_name: string
+  last_name: string
 }
 
 interface AuthContextType {
-  user: User | null;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
-  isAuthenticated: boolean;
-  isLoading: boolean;
+  user: User | null
+  token: string | null
+  isAuthenticated: boolean
+  loading: boolean
+  login: (username: string, password: string) => Promise<boolean>
+  logout: () => void
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export const useAuth = () => {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
+}
+
+interface AuthProviderProps {
+  children: ReactNode
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null)
+  const [token, setToken] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
-    // بررسی وجود توکن در localStorage هنگام لود اولیه
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      // TODO: اعتبارسنجی توکن با سرور
-      // برای حالا کاربر رو null می‌گذاریم
-      setUser(null);
-    }
-    setIsLoading(false);
-  }, []);
+    // بارگذاری اطلاعات از localStorage
+    const savedToken = localStorage.getItem('admin_token')
+    const savedUser = localStorage.getItem('admin_user')
 
-  const login = async (email: string, password: string) => {
-    try {
-      setIsLoading(true);
-      // TODO: ارسال درخواست login به سرور
-      // const response = await fetch('/api/auth/login', {...});
-      
-      // شبیه‌سازی login موفق
-      const mockUser: User = {
-        id: 1,
-        email,
-        firstName: 'کاربر',
-        lastName: 'نمونه',
-        phone: '09123456789'
-      };
-      
-      setUser(mockUser);
-      localStorage.setItem('authToken', 'mock-token');
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
+    if (savedToken && savedUser) {
+      setToken(savedToken)
+      setUser(JSON.parse(savedUser))
     }
-  };
+    
+    setLoading(false)
+  }, [])
+
+  const login = async (username: string, password: string): Promise<boolean> => {
+    try {
+      setLoading(true)
+      
+      console.log('Attempting login with:', { username, password })
+
+      // استفاده از endpoint اصلی
+      const response = await fetch('http://localhost:8000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          username: username,
+          password: password,
+          grant_type: 'password'
+        }),
+      })
+
+      console.log('Login response status:', response.status)
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Login successful:', data)
+        
+        // ذخیره در state
+        setToken(data.access_token)
+        setUser(data.user)
+        
+        // ذخیره در localStorage
+        localStorage.setItem('admin_token', data.access_token)
+        localStorage.setItem('admin_user', JSON.stringify(data.user))
+        
+        // هدایت به داشبورد
+        router.push('/admin/dashboard')
+        return true
+      } else {
+        const errorData = await response.json()
+        console.error('Login failed:', errorData)
+        return false
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('authToken');
-  };
+    setUser(null)
+    setToken(null)
+    localStorage.removeItem('admin_token')
+    localStorage.removeItem('admin_user')
+    router.push('/admin/login')
+  }
 
   const value: AuthContextType = {
     user,
+    token,
+    isAuthenticated: !!user && !!token,
+    loading,
     login,
     logout,
-    isAuthenticated: !!user,
-    isLoading,
-  };
+  }
 
   return (
     <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
-  );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  )
 }

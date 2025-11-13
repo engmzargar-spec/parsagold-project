@@ -18,7 +18,8 @@ const detectAdminRole = (email: string): string | null => {
   return null;
 };
 
-export const registerSchema = z.object({
+// اسکیما پایه بدون refinements
+const baseRegisterSchema = z.object({
   // اطلاعات هویتی
   username: z
     .string()
@@ -42,16 +43,7 @@ export const registerSchema = z.object({
   email: z
     .string()
     .email('ایمیل معتبر نیست')
-    .min(5, 'ایمیل باید حداقل ۵ کاراکتر باشد')
-    .refine((email) => {
-      // بررسی فرمت ایمیل برای ادمین‌ها
-      const adminRole = detectAdminRole(email);
-      if (adminRole) {
-        // برای ادمین‌ها، ایمیل باید حاوی کد مشخص باشد
-        return Object.keys(ADMIN_EMAIL_CODES).some(code => email.includes(code));
-      }
-      return true;
-    }, 'برای ثبت‌نام ادمین از ایمیل حاوی کد اختصاصی استفاده کنید'),
+    .min(5, 'ایمیل باید حداقل ۵ کاراکتر باشد'),
 
   nationalCode: z
     .string()
@@ -63,11 +55,7 @@ export const registerSchema = z.object({
     .string()
     .min(9, 'شماره تلفن باید حداقل 9 رقم باشد')
     .max(11, 'شماره تلفن نمی‌تواند بیشتر از ۱۱ رقم باشد')
-    .regex(/^\d+$/, 'شماره تلفن باید فقط شامل رقم باشد')
-    .refine((val: string) => {
-      // قبول کردن 9 رقم (بدون 09) یا 11 رقم (با 09)
-      return (val.length === 9 || val.length === 11) && /^\d+$/.test(val);
-    }, 'شماره موبایل باید ۹ رقم (بدون ۰۹) یا ۱۱ رقم (با ۰۹) باشد'),
+    .regex(/^\d+$/, 'شماره تلفن باید فقط شامل رقم باشد'),
 
   // اطلاعات موقعیت
   country: z.string().optional(),
@@ -91,36 +79,66 @@ export const registerSchema = z.object({
   confirmPassword: z.string(),
   
   // قوانین
-  agreeToTerms: z.boolean().refine((val) => val === true, {
-    message: 'لطفاً قوانین و مقررات را بپذیرید',
-  }),
+  agreeToTerms: z.boolean(),
 
   // اطلاعات سیستم
   os: z.string().optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
-
-}).refine((data) => data.password === data.confirmPassword, {
-  message: 'رمز عبور و تکرار آن یکسان نیستند',
-  path: ['confirmPassword'],
 });
+
+// اسکیما نهایی با refinements
+export const registerSchema = baseRegisterSchema
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'رمز عبور و تکرار آن یکسان نیستند',
+    path: ['confirmPassword'],
+  })
+  .refine((data) => {
+    // بررسی فرمت ایمیل برای ادمین‌ها
+    const adminRole = detectAdminRole(data.email);
+    if (adminRole) {
+      // برای ادمین‌ها، ایمیل باید حاوی کد مشخص باشد
+      return Object.keys(ADMIN_EMAIL_CODES).some(code => data.email.includes(code));
+    }
+    return true;
+  }, {
+    message: 'برای ثبت‌نام ادمین از ایمیل حاوی کد اختصاصی استفاده کنید',
+    path: ['email'],
+  })
+  .refine((data) => data.agreeToTerms === true, {
+    message: 'لطفاً قوانین و مقررات را بپذیرید',
+    path: ['agreeToTerms'],
+  })
+  .refine((data) => {
+    // قبول کردن 9 رقم (بدون 09) یا 11 رقم (با 09)
+    return (data.phone.length === 9 || data.phone.length === 11) && /^\d+$/.test(data.phone);
+  }, {
+    message: 'شماره موبایل باید ۹ رقم (بدون ۰۹) یا ۱۱ رقم (با ۰۹) باشد',
+    path: ['phone'],
+  });
 
 // اسکیما برای ثبت‌نام ادمین (استفاده در پنل مدیریت)
-export const adminRegisterSchema = registerSchema.extend({
-  accessGrade: z.enum(['chief', 'grade1', 'grade2', 'grade3']),
-  // حذف agreeToTerms برای ادمین‌ها (اختیاری)
-  agreeToTerms: z.boolean().optional(),
-}).refine((data) => {
-  // بررسی محدودیت Chief
-  if (data.accessGrade === 'chief') {
-    // این بررسی در سمت سرور هم انجام می‌شود
+export const adminRegisterSchema = baseRegisterSchema
+  .omit({ agreeToTerms: true })
+  .extend({
+    accessGrade: z.enum(['chief', 'grade1', 'grade2', 'grade3']),
+    agreeToTerms: z.boolean().optional(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'رمز عبور و تکرار آن یکسان نیستند',
+    path: ['confirmPassword'],
+  })
+  .refine((data) => {
+    // بررسی فرمت ایمیل برای ادمین‌ها
+    const adminRole = detectAdminRole(data.email);
+    if (adminRole) {
+      return Object.keys(ADMIN_EMAIL_CODES).some(code => data.email.includes(code));
+    }
     return true;
-  }
-  return true;
-}, {
-  message: 'حداکثر تعداد Chiefها تکمیل شده است',
-  path: ['accessGrade'],
-});
+  }, {
+    message: 'برای ثبت‌نام ادمین از ایمیل حاوی کد اختصاصی استفاده کنید',
+    path: ['email'],
+  });
 
 // اسکیما برای لاگین
 export const loginSchema = z.object({

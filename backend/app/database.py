@@ -1,4 +1,3 @@
-# backend/app/database.py
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -28,8 +27,8 @@ else:
 # ایجاد session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base برای مدل‌ها - از models.py شما استفاده می‌کنیم
-from .models.models import Base
+# ایجاد Base جدید برای مدل‌های جدید
+Base = declarative_base()
 
 # Dependency برای گرفتن session دیتابیس
 def get_db():

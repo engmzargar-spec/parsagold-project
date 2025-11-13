@@ -1,188 +1,98 @@
-// frontend/src/app/admin/layout.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
-import AdminSidebar from './components/AdminSidebar'
+import { usePathname, useRouter } from 'next/navigation'
+import { AuthProvider, useAuth } from '../../contexts/AuthContext'
 import AdminHeader from './components/AdminHeader'
+import AdminSidebar from './components/AdminSidebar'
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [isDarkMode, setIsDarkMode] = useState(true)
-  
-  const router = useRouter()
+function AdminLayoutContent({ children }: { children: React.ReactNode }) {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(false)
+  const { isAuthenticated, loading, user } = useAuth()
   const pathname = usePathname()
+  const router = useRouter()
 
-  // 🔄 بارگذاری وضعیت تم از localStorage
   useEffect(() => {
-    const savedTheme = localStorage.getItem('admin-theme')
-    if (savedTheme) {
-      setIsDarkMode(savedTheme === 'dark')
-    }
+    const savedTheme = localStorage.getItem('admin_theme')
+    setIsDarkMode(savedTheme === 'dark')
   }, [])
 
-  // 💾 ذخیره وضعیت تم در localStorage
   useEffect(() => {
-    localStorage.setItem('admin-theme', isDarkMode ? 'dark' : 'light')
-  }, [isDarkMode])
+    if (!loading && !isAuthenticated && pathname !== '/admin/login') {
+      router.push('/admin/login')
+    }
+  }, [isAuthenticated, loading, pathname, router])
 
-  // 🔄 تابع تغییر تم
   const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode)
+    const newTheme = !isDarkMode
+    setIsDarkMode(newTheme)
+    localStorage.setItem('admin_theme', newTheme ? 'dark' : 'light')
   }
 
-  useEffect(() => {
-    console.log('🔍 AdminLayout mounted - Path:', pathname)
-    
-    // اگر در صفحه login هستیم، Layout مدیریتی نشان نده
-    if (pathname === '/admin/login') {
-      console.log('🎯 Login page detected - skipping admin layout')
-      setIsAuthenticated(false)
-      setLoading(false)
-      return
-    }
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen)
+  }
 
-    // ✅ اصلاح: بررسی ساده و مستقیم بدون تاخیر
-    const token = localStorage.getItem('admin_token')
-    const userData = localStorage.getItem('admin_user')
-    
-    console.log('🔑 Auth check:', { 
-      token: token ? `Exists (${token.substring(0, 10)}...)` : 'No token', 
-      userData: userData ? 'Exists' : 'No user data',
-      pathname 
-    })
-    
-    if (!token || !userData) {
-      console.log('❌ Missing auth data, redirecting to login')
-      // ✅ اصلاح: فقط یکبار redirect کنیم
-      setTimeout(() => {
-        router.push('/admin/login')
-      }, 100)
-      return
-    }
-    
-    try {
-      // بررسی valid بودن user data
-      const user = JSON.parse(userData)
-      console.log('✅ User data valid, role:', user.role)
-      
-      setIsAuthenticated(true)
-      setLoading(false)
-    } catch (error) {
-      console.error('❌ Error parsing user data:', error)
-      localStorage.removeItem('admin_token')
-      localStorage.removeItem('admin_user')
-      setTimeout(() => {
-        router.push('/admin/login')
-      }, 100)
-    }
-  }, [router, pathname])
+  if (loading || (!isAuthenticated && pathname !== '/admin/login')) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
 
-  // اگر در صفحه login هستیم، فقط children را نمایش بده (بدون Layout مدیریتی)
   if (pathname === '/admin/login') {
-    console.log('🎯 Rendering login page without admin layout')
-    return <>{children}</>
+    return <div>{children}</div>
   }
 
-  if (loading) {
-    console.log('⏳ Showing loading state for path:', pathname)
-    return (
-      <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
-        isDarkMode 
-          ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white' 
-          : 'bg-gradient-to-br from-amber-100 via-amber-50 to-amber-100 text-gray-900'
-      }`}>
-        <div className="flex flex-col items-center gap-3">
-          <div className={`w-8 h-8 border-4 rounded-full animate-spin ${
-            isDarkMode 
-              ? 'border-yellow-500 border-t-transparent' 
-              : 'border-amber-600 border-t-transparent'
-          }`}></div>
-          <div className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-            در حال بارگذاری...
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    console.log('🚫 User not authenticated for path:', pathname)
-    return (
-      <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
-        isDarkMode 
-          ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white' 
-          : 'bg-gradient-to-br from-amber-100 via-amber-50 to-amber-100 text-gray-900'
-      }`}>
-        <div className="flex flex-col items-center gap-3">
-          <div className={`w-8 h-8 border-4 rounded-full animate-spin ${
-            isDarkMode 
-              ? 'border-yellow-500 border-t-transparent' 
-              : 'border-amber-600 border-t-transparent'
-          }`}></div>
-          <div className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
-            در حال انتقال به صفحه ورود...
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  console.log('🏠 Rendering full admin layout for path:', pathname)
   return (
-    <div className={`flex h-screen transition-colors duration-300 ${
-      isDarkMode 
-        ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white' 
-        : 'bg-gradient-to-br from-amber-100 via-amber-50 to-amber-100 text-gray-900'
+    <div className={`min-h-screen transition-colors duration-300 ${
+      isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'
     }`}>
-      {/* سایدبار برای دسکتاپ */}
-      <div className="hidden lg:flex lg:flex-shrink-0">
-        <AdminSidebar isDarkMode={isDarkMode} />
-      </div>
-
       {/* سایدبار برای موبایل */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div 
-            className={`fixed inset-0 transition-opacity ${
-              isDarkMode 
-                ? 'bg-gray-900 bg-opacity-80' 
-                : 'bg-amber-900 bg-opacity-50'
-            }`}
-            onClick={() => setSidebarOpen(false)}
-          />
-          <div className="fixed inset-y-0 right-0 max-w-full flex">
-            <AdminSidebar 
-              isDarkMode={isDarkMode} 
-              onClose={() => setSidebarOpen(false)} 
-            />
-          </div>
-        </div>
-      )}
-
-      {/* محتوای اصلی */}
-      <div className="flex flex-col flex-1 w-0 overflow-hidden">
-        <AdminHeader 
-          isDarkMode={isDarkMode}
-          toggleTheme={toggleTheme}
-          onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
         />
-        
-        {/* محتوای داینامیک */}
-        <main className="flex-1 relative overflow-y-auto focus:outline-none transition-colors duration-300">
-          <div className="py-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-              {children}
-            </div>
-          </div>
-        </main>
+      )}
+      
+      <div className="flex">
+        {/* سایدبار */}
+        <div className={`
+          fixed lg:static inset-y-0 right-0 z-50 w-64 transform transition-transform duration-300
+          ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'} lg:translate-x-0
+        `}>
+          <AdminSidebar 
+            isDarkMode={isDarkMode} 
+            onClose={() => setIsSidebarOpen(false)}
+          />
+        </div>
+
+        {/* محتوای اصلی - اصلاح شده */}
+        <div className="flex-1 flex flex-col min-h-screen w-full lg:w-[calc(100%-16rem)]"> {/* تغییر مهم اینجا */}
+          <AdminHeader 
+            isDarkMode={isDarkMode}
+            toggleTheme={toggleTheme}
+            onMenuClick={toggleSidebar}
+          />
+          
+          <main className="flex-1 p-6 overflow-auto w-full">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
+  )
+}
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <AdminLayoutContent>
+        {children}
+      </AdminLayoutContent>
+    </AuthProvider>
   )
 }
