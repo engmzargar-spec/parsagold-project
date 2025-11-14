@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
-import LivePrices from '@/components/LivePrices';
+import LivePrices from '@/components/dashboard/LivePrices';
 
 // آرایه بنرها - با اضافه شدن بنر نقره
 const banners = [

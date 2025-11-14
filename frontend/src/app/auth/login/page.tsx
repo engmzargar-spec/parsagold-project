@@ -11,14 +11,15 @@ import { useMutation } from '@tanstack/react-query';
 import { loginUser } from '@/lib/api/auth';
 import Image from 'next/image';
 
-// تعریف ساده schema
+// تعریف schema جدید برای شماره موبایل
 import { z } from 'zod';
 
 const loginSchema = z.object({
-  email: z
+  phone: z
     .string()
-    .email('ایمیل معتبر نیست')
-    .min(5, 'ایمیل باید حداقل ۵ کاراکتر باشد'),
+    .min(11, 'شماره موبایل باید ۱۱ رقم باشد')
+    .max(11, 'شماره موبایل باید ۱۱ رقم باشد')
+    .regex(/^09[0-9]{9}$/, 'شماره موبایل معتبر نیست (با 09 شروع شود)'),
   password: z.string().min(1, 'رمز عبور الزامی است'),
 });
 
@@ -47,55 +48,33 @@ export default function LoginPage() {
     onSuccess: (data) => {
       console.log('✅ پاسخ سرور در onSuccess:', data);
       
-      // بررسی ساختار response بک‌اند
-      let userEmail = '';
-      let userId = '';
-      let accessToken = '';
-
-      // حالت ۱: اگر response استاندارد FastAPI هست
-      if (data.access_token) {
-        accessToken = data.access_token;
-        userEmail = data.email || data.username || credentials.email;
-        userId = data.user_id || data.id || 'unknown';
-      }
-      // حالت ۲: اگر response ساده‌تر هست
-      else if (data.token) {
-        accessToken = data.token;
-        userEmail = data.email || credentials.email;
-        userId = data.userId || data.id || 'unknown';
-      }
-      // حالت ۳: اگر response کاملاً متفاوت هست
-      else {
-        console.warn('⚠️ ساختار response ناشناخته:', data);
-        // سعی می‌کنیم از ایمیل فرم استفاده کنیم
-        userEmail = credentials.email;
-        userId = 'generated_' + Date.now();
-        accessToken = 'dummy_token_' + Date.now();
-      }
+      // استفاده از ساختار response واقعی
+      const accessToken = data.access_token;
+      const userPhone = data.user?.phone || credentials.phone;
+      const userId = data.user?.id || 'unknown';
 
       // ذخیره اطلاعات
       localStorage.setItem('access_token', accessToken);
-      localStorage.setItem('userEmail', userEmail);
-      localStorage.setItem('userId', userId);
+      localStorage.setItem('userPhone', userPhone);
+      localStorage.setItem('userId', userId.toString());
 
       sessionStorage.setItem('access_token', accessToken);
-      sessionStorage.setItem('userEmail', userEmail);
-      sessionStorage.setItem('userId', userId);
+      sessionStorage.setItem('userPhone', userPhone);
+      sessionStorage.setItem('userId', userId.toString());
 
       console.log('💾 اطلاعات ذخیره شد:', {
-        userEmail,
+        userPhone,
         userId,
-        accessToken: accessToken ? 'موجود' : 'مفقود'
+        accessToken
       });
 
       // نمایش پیام موفقیت
       alert('ورود با موفقیت انجام شد! در حال انتقال به داشبورد...');
       
-      // هدایت به صفحه داشبورد با تأخیر
+      // هدایت به صفحه داشبورد
       setTimeout(() => {
-        router.push('/dashboard');
+        router.push('/user/dashboard');
       }, 1000);
-      
     },
     onError: (error: any) => {
       console.error('❌ خطا در ورود:', error);
@@ -104,7 +83,7 @@ export default function LoginPage() {
   });
 
   // ذخیره credentials برای استفاده در onSuccess
-  const [credentials, setCredentials] = React.useState<LoginFormData>({ email: '', password: '' });
+  const [credentials, setCredentials] = React.useState<LoginFormData>({ phone: '', password: '' });
 
   const onSubmit = async (data: LoginFormData) => {
     try {
@@ -193,6 +172,7 @@ export default function LoginPage() {
               fill
               className="object-contain"
               priority
+              sizes="(max-width: 768px) 96px, 128px"
             />
           </motion.div>
           <motion.h1 
@@ -231,20 +211,21 @@ export default function LoginPage() {
               <label className={`block text-xs md:text-sm font-medium mb-1 ${
                 isDarkMode ? 'text-gray-300' : 'text-gray-700'
               }`}>
-                ایمیل
+                شماره موبایل
               </label>
               <input
-                type="email"
-                {...register('email')}
+                type="tel"
+                {...register('phone')}
                 className={`w-full px-2 md:px-3 py-2 text-sm md:text-base rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 transition-all border ${
                   isDarkMode 
                     ? 'bg-gray-700/50 border-gray-600 text-white focus:ring-yellow-500 focus:border-transparent' 
                     : 'bg-white border-amber-200 text-gray-900 focus:ring-amber-500 focus:border-amber-300'
                 }`}
-                placeholder="example@email.com"
+                placeholder="09123456789"
+                maxLength={11}
               />
-              {errors.email && (
-                <p className="text-red-400 text-xs mt-1">{errors.email.message}</p>
+              {errors.phone && (
+                <p className="text-red-400 text-xs mt-1">{errors.phone.message}</p>
               )}
             </div>
 
@@ -315,7 +296,7 @@ export default function LoginPage() {
             }`}>
               حساب ندارید؟{' '}
               <Link
-                href="/register"
+                href="/auth/register"
                 className={`font-semibold underline transition-colors ${
                   isDarkMode ? 'text-yellow-400 hover:text-yellow-300' : 'text-amber-600 hover:text-amber-500'
                 }`}
@@ -343,12 +324,12 @@ export default function LoginPage() {
             onClick={() => {
               console.log('🔍 وضعیت فعلی localStorage:', {
                 access_token: localStorage.getItem('access_token'),
-                userEmail: localStorage.getItem('userEmail'),
+                userPhone: localStorage.getItem('userPhone'),
                 userId: localStorage.getItem('userId')
               });
               console.log('🔍 وضعیت فعلی sessionStorage:', {
                 access_token: sessionStorage.getItem('access_token'),
-                userEmail: sessionStorage.getItem('userEmail'),
+                userPhone: sessionStorage.getItem('userPhone'),
                 userId: sessionStorage.getItem('userId')
               });
             }}

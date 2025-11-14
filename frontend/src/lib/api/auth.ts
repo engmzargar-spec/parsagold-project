@@ -1,4 +1,5 @@
 // File: frontend/src/lib/api/auth.ts
+import { API_CONFIG } from './config';
 import { 
   RegisterFormData, 
   AdminRegisterFormData,
@@ -10,20 +11,11 @@ import {
 
 // اینترفیس‌های API
 export interface RegisterRequest {
-  username: string;
-  email: string;
-  password: string;
-  confirm_password: string;
-  first_name: string;
-  last_name: string;
   phone: string;
-  national_id: string;
-  country?: string;
-  city?: string;
-  date_of_birth?: string | null;
-  gender?: string | null;
-  address?: string | null;
-  postal_code?: string | null;
+  password: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
 }
 
 export interface AdminRegisterRequest extends RegisterRequest {
@@ -43,18 +35,10 @@ export interface AdminLoginRequest {
 export interface AuthResponse {
   access_token: string;
   token_type: string;
+  refresh_token?: string;
+  user_type?: string;
   user?: any;
   admin?: any;
-}
-
-export interface RegisterResponse {
-  message: string;
-  user_id: number;
-  email: string;
-  role?: string;
-  is_admin?: boolean;
-  requires_approval?: boolean;
-  requires_verification?: boolean;
 }
 
 // تابع کمکی برای مدیریت درخواست‌های API
@@ -105,70 +89,64 @@ async function handleApiRequest(url: string, options: RequestInit) {
   }
 }
 
-// تابع اصلی ثبت‌نام کاربر
-export async function registerUser(userData: RegisterFormData): Promise<RegisterResponse> {
+// تابع اصلی ثبت‌نام کاربر با شماره موبایل
+export async function registerUser(userData: RegisterFormData): Promise<AuthResponse> {
   console.log('📤 ارسال داده‌های ثبت‌نام به سرور:', userData);
 
-  // تشخیص خودکار نقش از ایمیل
-  const { isAdmin, role } = AuthUtils.detectUserRole(userData.email);
-  console.log(`🔍 تشخیص نقش: ${isAdmin ? 'ادمین' : 'کاربر'} - ${role}`);
-
-  // تبدیل داده‌ها به فرمت API
-  const requestData = RegisterDataTransformer.toAPI(userData);
-  
-  // تنظیم username اگر وجود ندارد
-  if (!requestData.username) {
-    requestData.username = userData.email.split('@')[0] + '_' + Math.random().toString(36).substr(2, 5);
-  }
-
-  console.log('📦 داده‌های تبدیل شده برای سرور:', requestData);
-
-  return handleApiRequest('http://localhost:8000/api/auth/register', {
+  // استفاده از config مرکزی
+  return handleApiRequest(`${API_CONFIG.BASE_URL}/auth/quick-register`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: JSON.stringify(requestData),
+    body: new URLSearchParams({
+      phone: userData.phone,
+      password: userData.password,
+    }),
+  });
+}
+
+// تابع لاگین کاربر معمولی با شماره موبایل
+export async function loginUser(credentials: LoginFormData): Promise<AuthResponse> {
+  console.log('📤 ارسال داده‌های ورود به سرور:', credentials);
+
+  // استفاده از شماره موبایل به عنوان username برای بک‌اند
+  const requestData: LoginRequest = {
+    username: credentials.phone,
+    password: credentials.password,
+  };
+
+  // استفاده از config مرکزی
+  return handleApiRequest(`${API_CONFIG.BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams(requestData as any),
   });
 }
 
 // تابع ثبت‌نام ادمین (برای استفاده در پنل مدیریت)
-export async function registerAdmin(adminData: AdminRegisterFormData, token: string): Promise<RegisterResponse> {
+export async function registerAdmin(adminData: AdminRegisterFormData, token: string): Promise<AuthResponse> {
   console.log('📤 ارسال داده‌های ثبت‌نام ادمین به سرور:', adminData);
 
-  // تبدیل داده‌ها به فرمت API
-  const requestData = RegisterDataTransformer.adminToAPI(adminData);
-  
-  // تنظیم username اگر وجود ندارد
-  if (!requestData.username) {
-    requestData.username = adminData.email.split('@')[0] + '_admin';
-  }
+  const requestData: AdminRegisterRequest = {
+    phone: adminData.phone,
+    password: adminData.password,
+    first_name: adminData.first_name,
+    last_name: adminData.last_name,
+    email: adminData.email,
+    access_grade: adminData.access_grade || 'admin',
+  };
 
   console.log('📦 داده‌های ادمین تبدیل شده:', requestData);
 
-  return handleApiRequest('http://localhost:8000/api/admin/register-admin', {
+  // استفاده از config مرکزی
+  return handleApiRequest(`${API_CONFIG.BASE_URL}/admin/register-admin`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(requestData),
-  });
-}
-
-// تابع لاگین کاربر معمولی
-export async function loginUser(credentials: LoginFormData): Promise<AuthResponse> {
-  console.log('📤 ارسال داده‌های ورود به سرور:', credentials);
-
-  const requestData: LoginRequest = {
-    username: credentials.username,
-    password: credentials.password,
-  };
-
-  return handleApiRequest('http://localhost:8000/api/auth/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
     },
     body: JSON.stringify(requestData),
   });
@@ -183,7 +161,8 @@ export async function adminLogin(credentials: AdminLoginFormData): Promise<AuthR
     password: credentials.password,
   };
 
-  return handleApiRequest('http://localhost:8000/api/auth/admin-login', {
+  // استفاده از config مرکزی
+  return handleApiRequest(`${API_CONFIG.BASE_URL}/auth/admin-login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -194,7 +173,8 @@ export async function adminLogin(credentials: AdminLoginFormData): Promise<AuthR
 
 // تابع برای بررسی وضعیت توکن
 export async function verifyToken(token: string): Promise<any> {
-  return handleApiRequest('http://localhost:8000/api/auth/verify-token', {
+  // استفاده از config مرکزی
+  return handleApiRequest(`${API_CONFIG.BASE_URL}/auth/verify-token`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -205,7 +185,8 @@ export async function verifyToken(token: string): Promise<any> {
 
 // تابع برای بررسی دسترسی ادمین
 export async function checkAdminAccess(token: string): Promise<any> {
-  return handleApiRequest('http://localhost:8000/api/auth/admin/check-access', {
+  // استفاده از config مرکزی
+  return handleApiRequest(`${API_CONFIG.BASE_URL}/auth/admin/check-access`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -216,7 +197,8 @@ export async function checkAdminAccess(token: string): Promise<any> {
 
 // تابع برای دریافت آمار سیستم
 export async function getSystemStatus(token: string): Promise<any> {
-  return handleApiRequest('http://localhost:8000/api/auth/system/status', {
+  // استفاده از config مرکزی
+  return handleApiRequest(`${API_CONFIG.BASE_URL}/auth/system/status`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -227,7 +209,8 @@ export async function getSystemStatus(token: string): Promise<any> {
 
 // تابع برای دریافت لیست ادمین‌های در انتظار تأیید
 export async function getPendingAdmins(token: string): Promise<any> {
-  return handleApiRequest('http://localhost:8000/api/admin/pending-approvals', {
+  // استفاده از config مرکزی
+  return handleApiRequest(`${API_CONFIG.BASE_URL}/admin/pending-approvals`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -244,7 +227,8 @@ export async function approveAdmin(adminId: number, action: string, token: strin
     notes: notes || ''
   };
 
-  return handleApiRequest('http://localhost:8000/api/admin/approve-admin', {
+  // استفاده از config مرکزی
+  return handleApiRequest(`${API_CONFIG.BASE_URL}/admin/approve-admin`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -256,7 +240,8 @@ export async function approveAdmin(adminId: number, action: string, token: strin
 
 // تابع برای دریافت آمار داشبورد
 export async function getDashboardStats(token: string): Promise<any> {
-  return handleApiRequest('http://localhost:8000/api/admin/dashboard-stats', {
+  // استفاده از config مرکزی
+  return handleApiRequest(`${API_CONFIG.BASE_URL}/admin/dashboard-stats`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,

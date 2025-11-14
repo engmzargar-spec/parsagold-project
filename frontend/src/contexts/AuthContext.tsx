@@ -1,7 +1,9 @@
+// فایل: src/contexts/AuthContext.tsx
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
+import { API_CONFIG } from '@/lib/api/config'
 
 interface User {
   id: number
@@ -58,26 +60,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true)
       
-      console.log('Attempting login with:', { username, password })
+      console.log('🔐 Attempting admin login with:', { username })
 
-      // استفاده از endpoint اصلی
-      const response = await fetch('http://localhost:8000/api/auth/login', {
+      // ✅ اصلاح شده: استفاده از آدرس درست و فرمت form-data
+      const formData = new URLSearchParams();
+      formData.append('username', username);
+      formData.append('password', password);
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/admin/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: new URLSearchParams({
-          username: username,
-          password: password,
-          grant_type: 'password'
-        }),
+        body: formData
       })
 
-      console.log('Login response status:', response.status)
+      console.log('📡 Admin login response status:', response.status)
+      console.log('📡 Admin login response ok:', response.ok)
 
       if (response.ok) {
         const data = await response.json()
-        console.log('Login successful:', data)
+        console.log('✅ Admin login successful:', data)
         
         // ذخیره در state
         setToken(data.access_token)
@@ -87,16 +90,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.setItem('admin_token', data.access_token)
         localStorage.setItem('admin_user', JSON.stringify(data.user))
         
-        // هدایت به داشبورد
+        // هدایت به داشبورد ادمین
         router.push('/admin/dashboard')
         return true
       } else {
-        const errorData = await response.json()
-        console.error('Login failed:', errorData)
+        const errorText = await response.text()
+        console.error('❌ Admin login failed - Status:', response.status)
+        console.error('❌ Admin login failed - Response:', errorText)
         return false
       }
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('❌ Admin login error:', error)
       return false
     } finally {
       setLoading(false)

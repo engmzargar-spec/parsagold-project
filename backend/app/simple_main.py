@@ -47,7 +47,7 @@ admin_router = APIRouter()
 async def auth_test():
     return {"status": "success", "message": "سیستم احراز هویت پارسا گلد فعال است"}
 
-@auth_router.post("/register")
+@auth_router.post("/auth/register")
 async def register_user(
     email: str,
     phone: str,
